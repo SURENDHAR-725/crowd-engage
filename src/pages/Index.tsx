@@ -1,13 +1,32 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { Navbar } from "@/components/layout/Navbar";
+import { HeroSection } from "@/components/landing/HeroSection";
+import { FeaturesSection } from "@/components/landing/FeaturesSection";
+import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
+import { CTASection } from "@/components/landing/CTASection";
+import { Footer } from "@/components/layout/Footer";
+import { Helmet } from "react-helmet-async";
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <>
+      <Helmet>
+        <title>CrowdSpark - Real-Time Audience Engagement Platform</title>
+        <meta 
+          name="description" 
+          content="Transform your presentations with live polls, quizzes, word clouds, and interactive games. Engage audiences in real-time with CrowdSpark." 
+        />
+      </Helmet>
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <main>
+          <HeroSection />
+          <FeaturesSection />
+          <HowItWorksSection />
+          <CTASection />
+        </main>
+        <Footer />
       </div>
-    </div>
+    </>
   );
 };
 
