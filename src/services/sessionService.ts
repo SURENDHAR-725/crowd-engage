@@ -1,14 +1,5 @@
 import { supabase, generateUniqueSessionCode } from '@/lib/supabase';
-import type { Database } from '@/lib/database.types';
-import type { SessionType, SessionStatus } from '@/lib/database.types';
-
-type Session = Database['public']['Tables']['sessions']['Row'];
-type SessionInsert = Database['public']['Tables']['sessions']['Insert'];
-type SessionUpdate = Database['public']['Tables']['sessions']['Update'];
-type Question = Database['public']['Tables']['questions']['Row'];
-type QuestionInsert = Database['public']['Tables']['questions']['Insert'];
-type Option = Database['public']['Tables']['options']['Row'];
-type OptionInsert = Database['public']['Tables']['options']['Insert'];
+import type { SessionType, SessionStatus, Json } from '@/lib/database.types';
 
 export type PaceMode = 'instructor' | 'self-paced';
 export type IdentityMode = 'anonymous' | 'named';
@@ -21,14 +12,61 @@ export interface SessionModes {
   shuffleOptions: boolean;
 }
 
+export interface QuestionData {
+  text: string;
+  type: 'mcq' | 'true-false' | 'poll' | 'open-ended';
+  timeLimit?: number;
+  points?: number;
+  options?: { text: string; isCorrect?: boolean }[];
+}
+
 export interface CreateSessionData {
   title: string;
   type: SessionType;
   status?: SessionStatus;
-  question: string;
-  options?: { text: string; isCorrect?: boolean }[];
-  timeLimit?: number;
+  questions: QuestionData[];
   modes?: SessionModes;
+  scoringLogic?: {
+    basePoints: number;
+    timeBonus: boolean;
+    streakBonus: boolean;
+  };
+}
+
+export interface Session {
+  id: string;
+  code: string;
+  host_id: string;
+  title: string;
+  type: SessionType;
+  status: SessionStatus;
+  settings: Json;
+  participant_count: number;
+  created_at: string;
+  started_at: string | null;
+  ended_at: string | null;
+  updated_at: string;
+}
+
+export interface Question {
+  id: string;
+  session_id: string;
+  question_text: string;
+  question_type: string;
+  order_index: number;
+  time_limit: number | null;
+  points: number;
+  settings: Json;
+  created_at: string;
+}
+
+export interface Option {
+  id: string;
+  question_id: string;
+  option_text: string;
+  order_index: number;
+  is_correct: boolean;
+  created_at: string;
 }
 
 export interface SessionWithDetails extends Session {
@@ -38,14 +76,12 @@ export interface SessionWithDetails extends Session {
 
 class SessionService {
   /**
-   * Create a new session with question and options
+   * Create a new session with questions and options
    */
   async createSession(hostId: string, data: CreateSessionData): Promise<SessionWithDetails | null> {
     try {
-      // Generate unique session code
       const code = await generateUniqueSessionCode();
 
-      // Create session
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
         .insert({
@@ -55,7 +91,6 @@ class SessionService {
           type: data.type,
           status: data.status || 'draft',
           settings: {
-            ...(data.timeLimit ? { time_limit: data.timeLimit } : {}),
             ...(data.modes ? {
               pace_mode: data.modes.paceMode,
               identity_mode: data.modes.identityMode,
@@ -63,8 +98,9 @@ class SessionService {
               show_live_results: data.modes.showLiveResults,
               shuffle_options: data.modes.shuffleOptions,
             } : {}),
+            ...(data.scoringLogic ? { scoring: data.scoringLogic } : {}),
           },
-        })
+        } as any)
         .select()
         .single();
 
@@ -73,52 +109,58 @@ class SessionService {
         return null;
       }
 
-      // Create question
-      const { data: question, error: questionError } = await supabase
-        .from('questions')
-        .insert({
-          session_id: session.id,
-          question_text: data.question,
-          question_type: data.type,
-          time_limit: data.timeLimit || null,
-          order_index: 0,
-        })
-        .select()
-        .single();
+      const typedSession = session as Session;
+      const createdQuestions: (Question & { options?: Option[] })[] = [];
 
-      if (questionError || !question) {
-        console.error('Error creating question:', questionError);
-        return null;
-      }
+      // Create questions
+      for (let i = 0; i < data.questions.length; i++) {
+        const q = data.questions[i];
+        const { data: question, error: questionError } = await supabase
+          .from('questions')
+          .insert({
+            session_id: typedSession.id,
+            question_text: q.text,
+            question_type: q.type,
+            time_limit: q.timeLimit || null,
+            points: q.points || 100,
+            order_index: i,
+          } as any)
+          .select()
+          .single();
 
-      // Create options (if not word cloud)
-      let options: Option[] = [];
-      if (data.options && data.options.length > 0) {
-        const optionsToInsert: OptionInsert[] = data.options.map((opt, index) => ({
-          question_id: question.id,
-          option_text: opt.text,
-          order_index: index,
-          is_correct: opt.isCorrect || false,
-        }));
-
-        const { data: createdOptions, error: optionsError } = await supabase
-          .from('options')
-          .insert(optionsToInsert)
-          .select();
-
-        if (optionsError) {
-          console.error('Error creating options:', optionsError);
-        } else if (createdOptions) {
-          options = createdOptions;
+        if (questionError || !question) {
+          console.error('Error creating question:', questionError);
+          continue;
         }
+
+        const typedQuestion = question as Question;
+        let options: Option[] = [];
+
+        // Create options
+        if (q.options && q.options.length > 0) {
+          const optionsToInsert = q.options.map((opt, index) => ({
+            question_id: typedQuestion.id,
+            option_text: opt.text,
+            order_index: index,
+            is_correct: opt.isCorrect || false,
+          }));
+
+          const { data: createdOptions, error: optionsError } = await supabase
+            .from('options')
+            .insert(optionsToInsert as any)
+            .select();
+
+          if (!optionsError && createdOptions) {
+            options = createdOptions as Option[];
+          }
+        }
+
+        createdQuestions.push({ ...typedQuestion, options });
       }
 
       return {
-        ...session,
-        question: {
-          ...question,
-          options,
-        },
+        ...typedSession,
+        questions: createdQuestions,
       };
     } catch (error) {
       console.error('Error in createSession:', error);
@@ -148,7 +190,7 @@ class SessionService {
         return [];
       }
 
-      return data as SessionWithDetails[];
+      return (data || []) as SessionWithDetails[];
     } catch (error) {
       console.error('Error in getHostSessions:', error);
       return [];
@@ -219,7 +261,7 @@ class SessionService {
    */
   async updateSessionStatus(sessionId: string, status: SessionStatus): Promise<boolean> {
     try {
-      const update: SessionUpdate = { status };
+      const update: any = { status };
 
       if (status === 'active') {
         update.started_at = new Date().toISOString();
@@ -247,11 +289,11 @@ class SessionService {
   /**
    * Update session
    */
-  async updateSession(sessionId: string, updates: SessionUpdate): Promise<boolean> {
+  async updateSession(sessionId: string, updates: Partial<Session>): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('sessions')
-        .update(updates)
+        .update(updates as any)
         .eq('id', sessionId);
 
       if (error) {

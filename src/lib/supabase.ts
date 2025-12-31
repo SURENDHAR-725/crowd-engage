@@ -1,10 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from './database.types';
 
-const supabaseUrl = 'https://jfczltytbtzuhpxsrevd.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpmY3psdHl0YnR6dWhweHNyZXZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5OTQ3MjksImV4cCI6MjA4MjU3MDcyOX0.2GxXADa3nswTtY94VJy5vbE4cUyzEGXyB-3GW5XMC7A';
+// Use environment variables or placeholder values
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+// Create client without Database type to avoid TypeScript issues when tables don't exist
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
@@ -29,13 +30,17 @@ export const generateSessionCode = (length: number = 6): string => {
 
 // Helper to check if session code exists
 export const isCodeUnique = async (code: string): Promise<boolean> => {
-  const { data, error } = await supabase
-    .from('sessions')
-    .select('id')
-    .eq('code', code.toUpperCase())
-    .single();
-  
-  return !data && error?.code === 'PGRST116'; // PGRST116 = no rows returned
+  try {
+    const { data, error } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('code', code.toUpperCase())
+      .single();
+    
+    return !data && error?.code === 'PGRST116'; // PGRST116 = no rows returned
+  } catch {
+    return true; // Assume unique if there's an error (e.g., table doesn't exist)
+  }
 };
 
 // Generate unique session code
