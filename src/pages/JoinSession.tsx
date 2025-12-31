@@ -8,6 +8,7 @@ import { ArrowRight, Zap, Users, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { sessionService } from "@/services/sessionService";
 
 const JoinSession = () => {
   const [sessionCode, setSessionCode] = useState("");
@@ -24,12 +25,22 @@ const JoinSession = () => {
 
     setIsLoading(true);
     
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Validate session code exists and is active
+      const session = await sessionService.getSessionByCode(sessionCode);
+      
+      if (session) {
+        toast.success("Joining session...");
+        navigate(`/session/${sessionCode.toUpperCase()}`);
+      } else {
+        toast.error("Session not found or not active");
+      }
+    } catch (error) {
+      console.error('Error joining session:', error);
+      toast.error("Failed to join session");
+    } finally {
       setIsLoading(false);
-      toast.success("Joining session...");
-      navigate(`/session/${sessionCode.toUpperCase()}`);
-    }, 1000);
+    }
   };
 
   return (

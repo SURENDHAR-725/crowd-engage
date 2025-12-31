@@ -13,39 +13,13 @@ import {
   Settings,
   LogOut,
   Copy,
-  Play
+  Play,
+  Loader2
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-
-// Mock data for sessions
-const mockSessions = [
-  {
-    id: "ABC123",
-    title: "Q3 Team Standup",
-    type: "poll",
-    status: "active",
-    participants: 24,
-    createdAt: "2024-01-15",
-  },
-  {
-    id: "XYZ789",
-    title: "Product Feedback Survey",
-    type: "wordcloud",
-    status: "draft",
-    participants: 0,
-    createdAt: "2024-01-14",
-  },
-  {
-    id: "DEF456",
-    title: "Company Trivia Night",
-    type: "quiz",
-    status: "ended",
-    participants: 156,
-    createdAt: "2024-01-10",
-  },
-];
+import { useSessions } from "@/hooks/useSessions";
 
 const pollTypes = [
   { 
@@ -77,6 +51,7 @@ const pollTypes = [
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
+  const { sessions, loading: sessionsLoading, updateSessionStatus, deleteSession } = useSessions();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -109,10 +84,32 @@ const Dashboard = () => {
     toast.success(`Code ${code} copied to clipboard!`);
   };
 
-  const filteredSessions = mockSessions.filter(session =>
+  const handleLaunchSession = async (sessionId: string) => {
+    await updateSessionStatus(sessionId, 'active');
+    // Navigate to present view (to be implemented)
+  };
+
+  const handleDeleteSession = async (sessionId: string) => {
+    if (confirm('Are you sure you want to delete this session?')) {
+      await deleteSession(sessionId);
+    }
+  };
+
+  const filteredSessions = sessions.filter(session =>
     session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    session.id.toLowerCase().includes(searchQuery.toLowerCase())
+    session.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (sessionsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -148,16 +145,16 @@ const Dashboard = () => {
         <div className="pt-6 border-t border-border">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-spark-teal flex items-center justify-center text-primary-foreground font-bold">
-              J
+              T
             </div>
             <div>
-              <p className="font-medium text-sm">John Doe</p>
-              <p className="text-xs text-muted-foreground">Free Plan</p>
+              <p className="font-medium text-sm">Test User</p>
+              <p className="text-xs text-muted-foreground">Dev Mode</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground">
+          <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" onClick={() => navigate('/')}>
             <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
+            Exit Dashboard
           </Button>
         </div>
       </aside>
@@ -236,67 +233,90 @@ const Dashboard = () => {
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
             </div>
-            <div className="space-y-3">
-              {filteredSessions.map((session) => {
-                const TypeIcon = getTypeIcon(session.type);
-                return (
-                  <motion.div
-                    key={session.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    whileHover={{ scale: 1.01 }}
-                  >
-                    <Card variant="default" className="card-hover">
-                      <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
-                          <TypeIcon className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold truncate">{session.title}</h3>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(session.status)}`}>
-                              {session.status}
-                            </span>
+            {filteredSessions.length === 0 ? (
+              <Card variant="default">
+                <CardContent className="p-12 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-muted mx-auto mb-4 flex items-center justify-center">
+                    <BarChart3 className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="font-semibold mb-2">No sessions yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    {searchQuery ? 'No sessions match your search' : 'Create your first interactive session to get started'}
+                  </p>
+                  {!searchQuery && (
+                    <Button variant="gradient" onClick={() => navigate('/create')}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create Session
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {filteredSessions.map((session) => {
+                  const TypeIcon = getTypeIcon(session.type);
+                  return (
+                    <motion.div
+                      key={session.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      whileHover={{ scale: 1.01 }}
+                    >
+                      <Card variant="default" className="card-hover">
+                        <CardContent className="p-4 flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                            <TypeIcon className="w-6 h-6 text-muted-foreground" />
                           </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Users className="w-4 h-4" />
-                              {session.participants}
-                            </span>
-                            <span>Code: {session.id}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold truncate">{session.title}</h3>
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(session.status)}`}>
+                                {session.status}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <Users className="w-4 h-4" />
+                                {session.participant_count}
+                              </span>
+                              <span>Code: {session.code}</span>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => copySessionCode(session.id)}
-                          >
-                            <Copy className="w-4 h-4" />
-                          </Button>
-                          {session.status === "active" && (
-                            <Button variant="gradient" size="sm">
-                              <Play className="w-4 h-4 mr-1" />
-                              Present
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => copySessionCode(session.code)}
+                            >
+                              <Copy className="w-4 h-4" />
                             </Button>
-                          )}
-                          {session.status === "draft" && (
-                            <Button variant="outline" size="sm">
-                              Edit
-                            </Button>
-                          )}
-                          {session.status === "ended" && (
-                            <Button variant="ghost" size="sm">
-                              Results
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                );
-              })}
-            </div>
+                            {session.status === "active" && (
+                              <Button variant="gradient" size="sm" onClick={() => navigate(`/session/${session.code}`)}>
+                                <Play className="w-4 h-4 mr-1" />
+                                Present
+                              </Button>
+                            )}
+                            {session.status === "draft" && (
+                              <>
+                                <Button variant="outline" size="sm" onClick={() => handleLaunchSession(session.id)}>
+                                  <Play className="w-4 h-4 mr-1" />
+                                  Launch
+                                </Button>
+                              </>
+                            )}
+                            {session.status === "ended" && (
+                              <Button variant="ghost" size="sm">
+                                Results
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           {/* Empty State */}

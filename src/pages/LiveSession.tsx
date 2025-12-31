@@ -1,62 +1,101 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useParams } from "react-router-dom";
-import { Zap, Users, CheckCircle2 } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Zap, Users, CheckCircle2, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-// Mock session data
-const mockSession = {
-  id: "ABC123",
-  title: "Q3 Team Standup",
-  question: "What's your biggest challenge this week?",
-  type: "mcq",
-  options: [
-    { id: "1", text: "Time management", votes: 12 },
-    { id: "2", text: "Communication", votes: 8 },
-    { id: "3", text: "Technical blockers", votes: 15 },
-    { id: "4", text: "Scope creep", votes: 5 },
-  ],
-  totalVotes: 40,
-  participants: 42,
-};
+import { useSessionByCode } from "@/hooks/useSessions";
+import { useParticipant, useResponse, useResponseAggregation, useParticipantCount } from "@/hooks/useResponses";
+import { toast } from "sonner";
 
 const LiveSession = () => {
   const { code } = useParams();
+  const navigate = useNavigate();
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [hasVoted, setHasVoted] = useState(false);
-  const [session, setSession] = useState(mockSession);
+  
+  // Fetch session data
+  const { session, loading: sessionLoading, error: sessionError } = useSessionByCode(code);
+  
+  // Join as participant
+  const { participant, joinSession } = useParticipant(session?.id);
+  
+  // Track participant count
+  const { count: participantCount } = useParticipantCount(session?.id);
+  
+  // Get first question (for now, we're handling single question per session)
+  const question = session?.questions?.[0];
+  const questionId = question?.id;
+  
+  // Response handling
+  const { hasResponded, submitResponse, loading: submitting } = useResponse(questionId);
+  
+  // Get real-time aggregation
+  const { aggregation, totalVotes } = useResponseAggregation(questionId);
 
-  // Simulate real-time updates
+  // Auto-join session when loaded
   useEffect(() => {
-    const interval = setInterval(() => {
-      setSession(prev => ({
-        ...prev,
-        options: prev.options.map(opt => ({
-          ...opt,
-          votes: opt.votes + Math.floor(Math.random() * 2),
-        })),
-        totalVotes: prev.totalVotes + Math.floor(Math.random() * 3),
-        participants: prev.participants + Math.floor(Math.random() * 2),
-      }));
-    }, 3000);
+    if (session && !participant) {
+      joinSession();
+    }
+  }, [session, participant]);
 
-    return () => clearInterval(interval);
-  }, []);
+  // Handle session errors
+  useEffect(() => {
+    if (sessionError) {
+      toast.error(sessionError);
+      navigate('/join');
+    }
+  }, [sessionError, navigate]);
 
-  const handleVote = () => {
-    if (selectedOption) {
-      setHasVoted(true);
+  const handleVote = async () => {
+    if (selectedOption && participant && questionId && session) {
+      const success = await submitResponse(
+        session.id,
+        participant.id,
+        selectedOption
+      );
+      
+      if (!success) {
+        setSelectedOption(null);
+      }
     }
   };
 
-  const getPercentage = (votes: number) => {
-    return session.totalVotes > 0 
-      ? Math.round((votes / session.totalVotes) * 100) 
-      : 0;
-  };
+  // Create options array with vote data
+  const optionsWithVotes = question?.options?.map(option => {
+    const agg = aggregation.find(a => a.option_id === option.id);
+    return {
+      id: option.id,
+      text: option.option_text,
+      votes: agg?.vote_count || 0,
+      percentage: agg?.percentage || 0,
+    };
+  }) || [];
 
-  const maxVotes = Math.max(...session.options.map(o => o.votes));
+  const maxVotes = Math.max(...optionsWithVotes.map(o => o.votes), 1);
+
+  if (sessionLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session || !question) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">Session Not Found</h2>
+          <p className="text-muted-foreground mb-4">The session code may be invalid or the session has ended.</p>
+          <Button onClick={() => navigate('/join')}>Try Another Code</Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -72,7 +111,7 @@ const LiveSession = () => {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Users className="w-4 h-4" />
-              <span>{session.participants}</span>
+              <span>{participantCount}</span>
             </div>
             <div className="px-3 py-1 rounded-full bg-spark-green/10 text-spark-green text-sm font-medium">
               Live
@@ -99,7 +138,7 @@ const LiveSession = () => {
             <Card variant="elevated" className="mb-6">
               <CardContent className="p-8 text-center">
                 <h1 className="text-2xl md:text-3xl font-display font-bold">
-                  {session.question}
+                  {question.question_text}
                 </h1>
               </CardContent>
             </Card>
@@ -107,7 +146,7 @@ const LiveSession = () => {
             {/* Options */}
             <div className="space-y-3">
               <AnimatePresence mode="wait">
-                {!hasVoted ? (
+                {!hasResponded ? (
                   <motion.div
                     key="voting"
                     initial={{ opacity: 0 }}
@@ -115,18 +154,19 @@ const LiveSession = () => {
                     exit={{ opacity: 0 }}
                     className="space-y-3"
                   >
-                    {session.options.map((option, index) => (
+                    {optionsWithVotes.map((option, index) => (
                       <motion.button
                         key={option.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
                         onClick={() => setSelectedOption(option.id)}
+                        disabled={submitting}
                         className={`w-full p-4 rounded-xl border-2 text-left transition-all flex items-center gap-4 ${
                           selectedOption === option.id
                             ? "border-primary bg-primary/5"
                             : "border-border hover:border-primary/50"
-                        }`}
+                        } ${submitting ? 'opacity-50 cursor-not-allowed' : ''}`}
                       >
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold shrink-0 ${
                           selectedOption === option.id
@@ -143,10 +183,17 @@ const LiveSession = () => {
                       variant="gradient"
                       size="xl"
                       className="w-full mt-6"
-                      disabled={!selectedOption}
+                      disabled={!selectedOption || submitting}
                       onClick={handleVote}
                     >
-                      Submit Vote
+                      {submitting ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        'Submit Vote'
+                      )}
                     </Button>
                   </motion.div>
                 ) : (
@@ -168,9 +215,8 @@ const LiveSession = () => {
                     </div>
 
                     {/* Results */}
-                    {session.options.map((option, index) => {
-                      const percentage = getPercentage(option.votes);
-                      const isWinning = option.votes === maxVotes;
+                    {optionsWithVotes.map((option, index) => {
+                      const isWinning = option.votes === maxVotes && maxVotes > 0;
                       const isSelected = selectedOption === option.id;
                       
                       return (
@@ -186,7 +232,7 @@ const LiveSession = () => {
                           {/* Background Bar */}
                           <motion.div
                             initial={{ width: 0 }}
-                            animate={{ width: `${percentage}%` }}
+                            animate={{ width: `${option.percentage}%` }}
                             transition={{ duration: 0.5, delay: index * 0.1 }}
                             className={`absolute inset-y-0 left-0 ${
                               isWinning ? "bg-primary/20" : "bg-muted"
@@ -217,7 +263,7 @@ const LiveSession = () => {
                               <span className={`font-display font-bold text-xl ${
                                 isWinning ? "text-primary" : "text-foreground"
                               }`}>
-                                {percentage}%
+                                {option.percentage}%
                               </span>
                             </div>
                           </div>
@@ -227,7 +273,7 @@ const LiveSession = () => {
 
                     {/* Total */}
                     <div className="text-center text-sm text-muted-foreground mt-4">
-                      Total votes: {session.totalVotes}
+                      Total votes: {totalVotes}
                     </div>
                   </motion.div>
                 )}
