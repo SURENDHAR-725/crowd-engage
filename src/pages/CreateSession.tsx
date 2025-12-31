@@ -205,13 +205,21 @@ const CreateSession = () => {
           }));
       }
 
+      const questionType = pollType === 'yesno' ? 'true-false' as const : 
+                           pollType === 'rating' ? 'poll' as const : 
+                           pollType === 'wordcloud' ? 'open-ended' as const : 'mcq' as const;
+
       const sessionData = {
         title,
         type: pollType,
         status: launch ? ('active' as const) : ('draft' as const),
-        question,
-        options: sessionOptions,
-        timeLimit: (pollType === 'quiz' || pollType === 'minigame' || pollType === 'battle') ? timeLimit : undefined,
+        questions: [{
+          text: question,
+          type: questionType,
+          timeLimit: (pollType === 'quiz' || pollType === 'minigame' || pollType === 'battle') ? timeLimit : undefined,
+          points: 100,
+          options: sessionOptions,
+        }],
         modes,
       };
 

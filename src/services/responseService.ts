@@ -1,10 +1,30 @@
 import { supabase } from '@/lib/supabase';
-import type { Database } from '@/lib/database.types';
 
-type Participant = Database['public']['Tables']['participants']['Row'];
-type ParticipantInsert = Database['public']['Tables']['participants']['Insert'];
-type Response = Database['public']['Tables']['responses']['Row'];
-type ResponseInsert = Database['public']['Tables']['responses']['Insert'];
+export interface Participant {
+  id: string;
+  session_id: string;
+  anonymous_id: string;
+  nickname: string | null;
+  avatar: string | null;
+  score: number;
+  streak: number;
+  joined_at: string;
+  last_seen_at: string;
+  is_blocked: boolean;
+}
+
+export interface Response {
+  id: string;
+  session_id: string;
+  question_id: string;
+  participant_id: string;
+  option_id: string | null;
+  text_response: string | null;
+  response_time: number | null;
+  is_correct: boolean | null;
+  points_earned: number;
+  created_at: string;
+}
 
 export interface ResponseWithDetails extends Response {
   participant?: Participant;
@@ -15,13 +35,29 @@ export interface ResponseAggregation {
   option_text: string;
   vote_count: number;
   percentage: number;
+  is_correct?: boolean;
+}
+
+export interface LeaderboardEntry {
+  participantId: string;
+  nickname: string;
+  avatar: string | null;
+  score: number;
+  correctAnswers: number;
+  streak: number;
+  rank: number;
 }
 
 class ResponseService {
   /**
    * Join session as participant
    */
-  async joinSession(sessionId: string, anonymousId: string, nickname?: string): Promise<Participant | null> {
+  async joinSession(
+    sessionId: string,
+    anonymousId: string,
+    nickname?: string,
+    avatar?: string
+  ): Promise<Participant | null> {
     try {
       // Check if participant already exists
       const { data: existing } = await supabase
@@ -35,12 +71,12 @@ class ResponseService {
         // Update last seen
         const { data, error } = await supabase
           .from('participants')
-          .update({ last_seen_at: new Date().toISOString() })
-          .eq('id', existing.id)
+          .update({ last_seen_at: new Date().toISOString() } as any)
+          .eq('id', (existing as any).id)
           .select()
           .single();
 
-        return data;
+        return data as Participant;
       }
 
       // Create new participant
@@ -50,7 +86,11 @@ class ResponseService {
           session_id: sessionId,
           anonymous_id: anonymousId,
           nickname: nickname || null,
-        })
+          avatar: avatar || null,
+          score: 0,
+          streak: 0,
+          is_blocked: false,
+        } as any)
         .select()
         .single();
 
@@ -59,7 +99,7 @@ class ResponseService {
         return null;
       }
 
-      return data;
+      return data as Participant;
     } catch (error) {
       console.error('Error in joinSession:', error);
       return null;
@@ -76,7 +116,7 @@ class ResponseService {
     optionId?: string,
     textResponse?: string,
     responseTime?: number
-  ): Promise<Response | null> {
+  ): Promise<{ response: Response | null; pointsEarned: number }> {
     try {
       // Check if participant already responded to this question
       const { data: existing } = await supabase
@@ -89,11 +129,13 @@ class ResponseService {
 
       if (existing) {
         console.log('Participant already responded to this question');
-        return existing;
+        return { response: existing as Response, pointsEarned: 0 };
       }
 
       // Determine if answer is correct (for quizzes)
       let isCorrect: boolean | null = null;
+      let basePoints = 0;
+
       if (optionId) {
         const { data: option } = await supabase
           .from('options')
@@ -102,7 +144,14 @@ class ResponseService {
           .single();
 
         if (option) {
-          isCorrect = option.is_correct;
+          isCorrect = (option as any).is_correct;
+          if (isCorrect) {
+            basePoints = 100; // Base points for correct answer
+            // Time bonus: faster = more points
+            if (responseTime && responseTime < 5000) {
+              basePoints += Math.floor((5000 - responseTime) / 100);
+            }
+          }
         }
       }
 
@@ -117,19 +166,37 @@ class ResponseService {
           text_response: textResponse || null,
           response_time: responseTime || null,
           is_correct: isCorrect,
-        })
+          points_earned: basePoints,
+        } as any)
         .select()
         .single();
 
       if (error) {
         console.error('Error submitting response:', error);
-        return null;
+        return { response: null, pointsEarned: 0 };
       }
 
-      return data;
+      // Update participant score if correct
+      if (isCorrect && basePoints > 0) {
+        await supabase
+          .from('participants')
+          .update({
+            score: supabase.rpc('increment_score', { x: basePoints }),
+            streak: supabase.rpc('increment_streak'),
+          } as any)
+          .eq('id', participantId);
+      } else if (isCorrect === false) {
+        // Reset streak on wrong answer
+        await supabase
+          .from('participants')
+          .update({ streak: 0 } as any)
+          .eq('id', participantId);
+      }
+
+      return { response: data as Response, pointsEarned: basePoints };
     } catch (error) {
       console.error('Error in submitResponse:', error);
-      return null;
+      return { response: null, pointsEarned: 0 };
     }
   }
 
@@ -144,7 +211,8 @@ class ResponseService {
           option_id,
           options (
             id,
-            option_text
+            option_text,
+            is_correct
           )
         `)
         .eq('question_id', questionId)
@@ -156,16 +224,17 @@ class ResponseService {
       }
 
       // Count votes per option
-      const voteCounts = new Map<string, { text: string; count: number }>();
+      const voteCounts = new Map<string, { text: string; count: number; isCorrect: boolean }>();
       let totalVotes = 0;
 
-      data.forEach((response: any) => {
+      (data || []).forEach((response: any) => {
         if (response.option_id && response.options) {
           const optionId = response.option_id;
           const optionText = response.options.option_text;
+          const isCorrect = response.options.is_correct;
 
           if (!voteCounts.has(optionId)) {
-            voteCounts.set(optionId, { text: optionText, count: 0 });
+            voteCounts.set(optionId, { text: optionText, count: 0, isCorrect });
           }
 
           const current = voteCounts.get(optionId)!;
@@ -176,11 +245,12 @@ class ResponseService {
 
       // Convert to array with percentages
       const aggregation: ResponseAggregation[] = Array.from(voteCounts.entries()).map(
-        ([optionId, { text, count }]) => ({
+        ([optionId, { text, count, isCorrect }]) => ({
           option_id: optionId,
           option_text: text,
           vote_count: count,
           percentage: totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0,
+          is_correct: isCorrect,
         })
       );
 
@@ -207,10 +277,75 @@ class ResponseService {
         return [];
       }
 
-      return data.map((r) => r.text_response).filter(Boolean) as string[];
+      return (data || []).map((r: any) => r.text_response).filter(Boolean) as string[];
     } catch (error) {
       console.error('Error in getTextResponses:', error);
       return [];
+    }
+  }
+
+  /**
+   * Get leaderboard for a session
+   */
+  async getLeaderboard(sessionId: string): Promise<LeaderboardEntry[]> {
+    try {
+      const { data, error } = await supabase
+        .from('participants')
+        .select('*')
+        .eq('session_id', sessionId)
+        .eq('is_blocked', false)
+        .order('score', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Error fetching leaderboard:', error);
+        return [];
+      }
+
+      return (data || []).map((p: any, index) => ({
+        participantId: p.id,
+        nickname: p.nickname || 'Anonymous',
+        avatar: p.avatar,
+        score: p.score || 0,
+        correctAnswers: 0, // TODO: Calculate from responses
+        streak: p.streak || 0,
+        rank: index + 1,
+      }));
+    } catch (error) {
+      console.error('Error in getLeaderboard:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Moderate participant (block/rename)
+   */
+  async moderateParticipant(
+    participantId: string,
+    action: 'block' | 'rename' | 'kick',
+    newName?: string
+  ): Promise<boolean> {
+    try {
+      if (action === 'block') {
+        await supabase
+          .from('participants')
+          .update({ is_blocked: true } as any)
+          .eq('id', participantId);
+      } else if (action === 'rename' && newName) {
+        await supabase
+          .from('participants')
+          .update({ nickname: newName } as any)
+          .eq('id', participantId);
+      } else if (action === 'kick') {
+        await supabase
+          .from('participants')
+          .delete()
+          .eq('id', participantId);
+      }
+      return true;
+    } catch (error) {
+      console.error('Error moderating participant:', error);
+      return false;
     }
   }
 
@@ -242,7 +377,7 @@ class ResponseService {
   /**
    * Subscribe to participant changes
    */
-  subscribeToParticipants(sessionId: string, callback: (count: number) => void) {
+  subscribeToParticipants(sessionId: string, callback: (participants: Participant[]) => void) {
     const channel = supabase
       .channel(`participants:${sessionId}`)
       .on(
@@ -254,13 +389,40 @@ class ResponseService {
           filter: `session_id=eq.${sessionId}`,
         },
         async () => {
-          // Fetch updated count
-          const { count } = await supabase
+          // Fetch updated participants
+          const { data } = await supabase
             .from('participants')
-            .select('*', { count: 'exact', head: true })
-            .eq('session_id', sessionId);
+            .select('*')
+            .eq('session_id', sessionId)
+            .eq('is_blocked', false);
 
-          callback(count || 0);
+          callback((data || []) as Participant[]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }
+
+  /**
+   * Subscribe to leaderboard changes
+   */
+  subscribeToLeaderboard(sessionId: string, callback: (leaderboard: LeaderboardEntry[]) => void) {
+    const channel = supabase
+      .channel(`leaderboard:${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'participants',
+          filter: `session_id=eq.${sessionId}`,
+        },
+        async () => {
+          const leaderboard = await this.getLeaderboard(sessionId);
+          callback(leaderboard);
         }
       )
       .subscribe();
@@ -278,7 +440,8 @@ class ResponseService {
       const { count, error } = await supabase
         .from('participants')
         .select('*', { count: 'exact', head: true })
-        .eq('session_id', sessionId);
+        .eq('session_id', sessionId)
+        .eq('is_blocked', false);
 
       if (error) {
         console.error('Error fetching participant count:', error);

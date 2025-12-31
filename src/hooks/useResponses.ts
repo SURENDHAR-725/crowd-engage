@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
-import { responseService, type ResponseAggregation } from '@/services/responseService';
-import type { Database } from '@/lib/database.types';
+import { responseService, type ResponseAggregation, type LeaderboardEntry, type Participant } from '@/services/responseService';
 import { toast } from 'sonner';
-
-type Participant = Database['public']['Tables']['participants']['Row'];
-type Response = Database['public']['Tables']['responses']['Row'];
 
 // Generate a persistent anonymous ID for the browser
 const getAnonymousId = (): string => {
@@ -21,11 +17,11 @@ export function useParticipant(sessionId?: string) {
   const [loading, setLoading] = useState(false);
   const anonymousId = getAnonymousId();
 
-  const joinSession = async (nickname?: string) => {
+  const joinSession = async (nickname?: string, avatar?: string) => {
     if (!sessionId) return null;
 
     setLoading(true);
-    const data = await responseService.joinSession(sessionId, anonymousId, nickname);
+    const data = await responseService.joinSession(sessionId, anonymousId, nickname, avatar);
     setParticipant(data);
     setLoading(false);
 
@@ -49,6 +45,7 @@ export function useParticipant(sessionId?: string) {
 export function useResponse(questionId?: string) {
   const [hasResponded, setHasResponded] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pointsEarned, setPointsEarned] = useState(0);
 
   const submitResponse = async (
     sessionId: string,
@@ -60,7 +57,7 @@ export function useResponse(questionId?: string) {
     if (!questionId) return null;
 
     setLoading(true);
-    const data = await responseService.submitResponse(
+    const result = await responseService.submitResponse(
       sessionId,
       questionId,
       participantId,
@@ -70,19 +67,21 @@ export function useResponse(questionId?: string) {
     );
     setLoading(false);
 
-    if (data) {
+    if (result.response) {
       setHasResponded(true);
-      toast.success('Response submitted!');
+      setPointsEarned(result.pointsEarned);
+      toast.success(`Response submitted! +${result.pointsEarned} points`);
     } else {
       toast.error('Failed to submit response');
     }
 
-    return data;
+    return result;
   };
 
   return {
     hasResponded,
     loading,
+    pointsEarned,
     submitResponse,
   };
 }
@@ -129,6 +128,7 @@ export function useResponseAggregation(questionId?: string) {
 
 export function useParticipantCount(sessionId?: string) {
   const [count, setCount] = useState(0);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -150,8 +150,9 @@ export function useParticipantCount(sessionId?: string) {
   useEffect(() => {
     if (!sessionId) return;
 
-    const unsubscribe = responseService.subscribeToParticipants(sessionId, (newCount) => {
-      setCount(newCount);
+    const unsubscribe = responseService.subscribeToParticipants(sessionId, (newParticipants) => {
+      setParticipants(newParticipants);
+      setCount(newParticipants.length);
     });
 
     return unsubscribe;
@@ -159,8 +160,46 @@ export function useParticipantCount(sessionId?: string) {
 
   return {
     count,
+    participants,
     loading,
     refreshCount: loadCount,
+  };
+}
+
+export function useLeaderboard(sessionId?: string) {
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (sessionId) {
+      loadLeaderboard();
+    }
+  }, [sessionId]);
+
+  const loadLeaderboard = async () => {
+    if (!sessionId) return;
+
+    setLoading(true);
+    const data = await responseService.getLeaderboard(sessionId);
+    setLeaderboard(data);
+    setLoading(false);
+  };
+
+  // Subscribe to leaderboard changes
+  useEffect(() => {
+    if (!sessionId) return;
+
+    const unsubscribe = responseService.subscribeToLeaderboard(sessionId, (newLeaderboard) => {
+      setLeaderboard(newLeaderboard);
+    });
+
+    return unsubscribe;
+  }, [sessionId]);
+
+  return {
+    leaderboard,
+    loading,
+    refreshLeaderboard: loadLeaderboard,
   };
 }
 
