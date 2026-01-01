@@ -12,11 +12,20 @@ export interface SessionModes {
   shuffleOptions: boolean;
 }
 
+export interface QuestionData {
+  text: string;
+  type: 'mcq' | 'poll' | 'true-false' | 'open-ended';
+  timeLimit?: number;
+  points?: number;
+  options?: { text: string; isCorrect?: boolean }[];
+}
+
 export interface CreateSessionData {
   title: string;
   type: SessionType;
   status?: SessionStatus;
-  question: string;
+  question?: string;
+  questions?: QuestionData[];
   options?: { text: string; isCorrect?: boolean }[];
   timeLimit?: number;
   modes?: SessionModes;
@@ -115,23 +124,35 @@ class SessionService {
         return null;
       }
 
-      // Create question
-      const { data: question, error: questionError } = await supabase
-        .from('questions')
-        .insert({
-          session_id: (session as any).id,
-          question_text: data.question,
-          question_type: data.type,
-          time_limit: data.timeLimit || null,
-          order_index: 0,
-        } as any)
-        .select()
-        .single();
+      // Create questions (support both single question and multiple questions)
+      const questionsToCreate = data.questions 
+        ? data.questions.map((q, index) => ({
+            session_id: (session as any).id,
+            question_text: q.text,
+            question_type: q.type,
+            time_limit: q.timeLimit || null,
+            order_index: index,
+            settings: { points: q.points || 100 },
+          }))
+        : [{
+            session_id: (session as any).id,
+            question_text: data.question || '',
+            question_type: data.type,
+            time_limit: data.timeLimit || null,
+            order_index: 0,
+          }];
 
-      if (questionError || !question) {
-        console.error('Error creating question:', questionError);
+      const { data: createdQuestions, error: questionError } = await supabase
+        .from('questions')
+        .insert(questionsToCreate as any)
+        .select();
+
+      if (questionError || !createdQuestions || createdQuestions.length === 0) {
+        console.error('Error creating questions:', questionError);
         return null;
       }
+
+      const question = createdQuestions[0];
 
       // Create options (if not word cloud)
       let options: Option[] = [];
