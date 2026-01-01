@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play, Users, BarChart3, Zap } from "lucide-react";
+import { ArrowRight, Play, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -78,35 +78,6 @@ export function HeroSection() {
             </Button>
           </motion.div>
 
-          {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="grid grid-cols-3 gap-8 max-w-lg mx-auto"
-          >
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Users className="w-5 h-5 text-primary" />
-                <span className="text-2xl md:text-3xl font-display font-bold">10k+</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Active Users</p>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <BarChart3 className="w-5 h-5 text-spark-coral" />
-                <span className="text-2xl md:text-3xl font-display font-bold">50k+</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Sessions</p>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 mb-2">
-                <Zap className="w-5 h-5 text-spark-teal" />
-                <span className="text-2xl md:text-3xl font-display font-bold">1M+</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Responses</p>
-            </div>
-          </motion.div>
         </div>
 
         {/* Floating Elements */}
