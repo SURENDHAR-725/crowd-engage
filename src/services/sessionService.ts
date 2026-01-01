@@ -12,13 +12,19 @@ export interface SessionModes {
   shuffleOptions: boolean;
 }
 
+export interface QuestionData {
+  text: string;
+  type: string;
+  timeLimit?: number;
+  points?: number;
+  options?: { text: string; isCorrect?: boolean }[];
+}
+
 export interface CreateSessionData {
   title: string;
   type: SessionType;
   status?: SessionStatus;
-  question: string;
-  options?: { text: string; isCorrect?: boolean }[];
-  timeLimit?: number;
+  questions: QuestionData[];
   modes?: SessionModes;
 }
 
@@ -87,6 +93,13 @@ class SessionService {
       // Generate unique session code
       const code = await generateUniqueSessionCode();
 
+      // Get the first question from the questions array
+      const firstQuestion = data.questions[0];
+      if (!firstQuestion) {
+        console.error('No questions provided');
+        return null;
+      }
+
       // Create session
       const { data: session, error: sessionError } = await supabase
         .from('sessions')
@@ -97,7 +110,7 @@ class SessionService {
           type: data.type,
           status: data.status || 'draft',
           settings: {
-            ...(data.timeLimit ? { time_limit: data.timeLimit } : {}),
+            ...(firstQuestion.timeLimit ? { time_limit: firstQuestion.timeLimit } : {}),
             ...(data.modes ? {
               pace_mode: data.modes.paceMode,
               identity_mode: data.modes.identityMode,
@@ -120,9 +133,9 @@ class SessionService {
         .from('questions')
         .insert({
           session_id: (session as any).id,
-          question_text: data.question,
-          question_type: data.type,
-          time_limit: data.timeLimit || null,
+          question_text: firstQuestion.text,
+          question_type: firstQuestion.type,
+          time_limit: firstQuestion.timeLimit || null,
           order_index: 0,
         } as any)
         .select()
@@ -135,8 +148,8 @@ class SessionService {
 
       // Create options (if not word cloud)
       let options: Option[] = [];
-      if (data.options && data.options.length > 0) {
-        const optionsToInsert = data.options.map((opt, index) => ({
+      if (firstQuestion.options && firstQuestion.options.length > 0) {
+        const optionsToInsert = firstQuestion.options.map((opt, index) => ({
           question_id: (question as any).id,
           option_text: opt.text,
           order_index: index,
