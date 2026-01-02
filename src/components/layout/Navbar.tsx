@@ -1,13 +1,24 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Zap, Menu, X } from "lucide-react";
+import { Zap, Menu, X, Settings, Moon, Sun } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
+import { Switch } from "@/components/ui/switch";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass-strong">
@@ -41,6 +52,45 @@ export function Navbar() {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
+            {/* Settings Button */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Settings className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>Settings</SheetTitle>
+                  <SheetDescription>
+                    Customize your experience
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="py-6 space-y-6">
+                  {/* Theme Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {theme === "dark" ? (
+                        <Moon className="w-5 h-5 text-primary" />
+                      ) : (
+                        <Sun className="w-5 h-5 text-primary" />
+                      )}
+                      <div>
+                        <p className="font-medium">Dark Mode</p>
+                        <p className="text-sm text-muted-foreground">
+                          {theme === "dark" ? "Currently enabled" : "Currently disabled"}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={theme === "dark"}
+                      onCheckedChange={toggleTheme}
+                    />
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
+
             <Link to="/join">
               <Button variant="outline">Join Session</Button>
             </Link>
@@ -104,6 +154,23 @@ export function Navbar() {
               >
                 About
               </Link>
+              
+              {/* Mobile Theme Toggle */}
+              <div className="flex items-center justify-between py-3 border-t border-border mt-2">
+                <div className="flex items-center gap-3">
+                  {theme === "dark" ? (
+                    <Moon className="w-5 h-5 text-primary" />
+                  ) : (
+                    <Sun className="w-5 h-5 text-primary" />
+                  )}
+                  <span className="text-muted-foreground">Dark Mode</span>
+                </div>
+                <Switch
+                  checked={theme === "dark"}
+                  onCheckedChange={toggleTheme}
+                />
+              </div>
+
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 <Link to="/join" onClick={() => setIsMenuOpen(false)}>
                   <Button variant="outline" className="w-full">Join Session</Button>
