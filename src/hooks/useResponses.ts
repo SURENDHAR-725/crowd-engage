@@ -161,6 +161,7 @@ export function useParticipantCount(sessionId?: string) {
   return {
     count,
     participants,
+    isLoading: loading,
     loading,
     refreshCount: loadCount,
   };
@@ -198,8 +199,68 @@ export function useLeaderboard(sessionId?: string) {
 
   return {
     leaderboard,
+    isLoading: loading,
     loading,
+    refetch: loadLeaderboard,
     refreshLeaderboard: loadLeaderboard,
+  };
+}
+
+// Hook to get responses for a specific question
+export function useQuestionResponses(questionId?: string) {
+  const [responses, setResponses] = useState<Array<{
+    id: string;
+    participant_id: string;
+    option_id: string | null;
+    is_correct: boolean;
+    score: number;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (questionId) {
+      loadResponses();
+    }
+  }, [questionId]);
+
+  const loadResponses = async () => {
+    if (!questionId) return;
+
+    setLoading(true);
+    try {
+      const { supabase } = await import('@/lib/supabase');
+      const { data, error } = await supabase
+        .from('responses')
+        .select('id, participant_id, option_id, is_correct, score')
+        .eq('question_id', questionId);
+
+      if (error) throw error;
+      setResponses(data || []);
+    } catch (error) {
+      console.error('Error loading question responses:', error);
+      setResponses([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Subscribe to new responses
+  useEffect(() => {
+    if (!questionId) return;
+
+    const unsubscribe = responseService.subscribeToResponses(questionId, () => {
+      loadResponses();
+    });
+
+    return unsubscribe;
+  }, [questionId]);
+
+  return {
+    responses,
+    isLoading: loading,
+    loading,
+    refetch: loadResponses,
+    refreshResponses: loadResponses,
   };
 }
 

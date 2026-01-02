@@ -32,6 +32,7 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/create" element={<CreateSession />} />
               <Route path="/session/:code" element={<LiveSession />} />
+              <Route path="/live/:sessionId" element={<LiveSession />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
