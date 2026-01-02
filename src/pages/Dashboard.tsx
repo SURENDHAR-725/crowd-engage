@@ -14,7 +14,8 @@ import {
   LogOut,
   Copy,
   Play,
-  Loader2
+  Loader2,
+  Trophy
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
@@ -50,6 +51,7 @@ const pollTypes = [
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const navigate = useNavigate();
   const { sessions, loading: sessionsLoading, updateSessionStatus, deleteSession } = useSessions();
 
@@ -99,6 +101,10 @@ const Dashboard = () => {
     session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     session.code.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Show only 5 sessions by default, or all if showAll is true or searching
+  const displayedSessions = (showAll || searchQuery) ? filteredSessions : filteredSessions.slice(0, 5);
+  const hasMoreSessions = filteredSessions.length > 5;
 
   if (sessionsLoading) {
     return (
@@ -228,10 +234,16 @@ const Dashboard = () => {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-display font-semibold">Recent Sessions</h2>
-              <Button variant="ghost" size="sm">
-                View All
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </Button>
+              {hasMoreSessions && !searchQuery && (
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowAll(!showAll)}
+                >
+                  {showAll ? 'Show Less' : `View All (${filteredSessions.length})`}
+                  <ChevronRight className={`w-4 h-4 ml-1 transition-transform ${showAll ? 'rotate-90' : ''}`} />
+                </Button>
+              )}
             </div>
             {filteredSessions.length === 0 ? (
               <Card variant="default">
@@ -253,7 +265,7 @@ const Dashboard = () => {
               </Card>
             ) : (
               <div className="space-y-3">
-                {filteredSessions.map((session) => {
+                {displayedSessions.map((session) => {
                   const TypeIcon = getTypeIcon(session.type);
                   return (
                     <motion.div
@@ -305,7 +317,12 @@ const Dashboard = () => {
                               </>
                             )}
                             {session.status === "ended" && (
-                              <Button variant="ghost" size="sm">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => navigate(`/session/${session.code}?host=true`)}
+                              >
+                                <Trophy className="w-4 h-4 mr-1" />
                                 Results
                               </Button>
                             )}

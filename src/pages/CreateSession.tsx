@@ -28,15 +28,24 @@ import {
   Gamepad2,
   Swords,
   Mic,
-  Sparkles
+  Sparkles,
+  FileText,
+  BookOpen,
+  Flame
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { useSessions } from "@/hooks/useSessions";
 import type { SessionType } from "@/lib/database.types";
+import { PDFQuizGenerator } from "@/components/host/PDFQuizGenerator";
+import { TopicQuizGenerator } from "@/components/host/TopicQuizGenerator";
+import type { GeneratedQuestion } from "@/services/aiQuizService";
 
 type PollType = SessionType;
+
+// AI generation mode
+type AIGeneratorMode = 'none' | 'topic' | 'pdf';
 
 interface PollOption {
   id: string;
@@ -111,6 +120,7 @@ interface SessionModes {
   allowMultipleResponses: boolean;
   showLiveResults: boolean;
   shuffleOptions: boolean;
+  chaosMode: boolean;
 }
 
 const defaultModes: SessionModes = {
@@ -119,6 +129,7 @@ const defaultModes: SessionModes = {
   allowMultipleResponses: false,
   showLiveResults: true,
   shuffleOptions: false,
+  chaosMode: false,
 };
 
 const CreateSession = () => {
@@ -138,6 +149,9 @@ const CreateSession = () => {
   const [timeLimit, setTimeLimit] = useState(30);
   const [isLoading, setIsLoading] = useState(false);
   const [modes, setModes] = useState<SessionModes>(defaultModes);
+  const [aiGeneratorMode, setAiGeneratorMode] = useState<AIGeneratorMode>('none');
+  const [multiQuestions, setMultiQuestions] = useState<GeneratedQuestion[]>([]);
+  const [isMultiQuestionMode, setIsMultiQuestionMode] = useState(false);
 
   const updateMode = <K extends keyof SessionModes>(key: K, value: SessionModes[K]) => {
     setModes(prev => ({ ...prev, [key]: value }));
@@ -157,6 +171,31 @@ const CreateSession = () => {
 
   const updateOption = (id: string, text: string) => {
     setOptions(options.map(opt => opt.id === id ? { ...opt, text } : opt));
+  };
+
+  // Handle AI-generated questions
+  const handleAIQuestionsGenerated = (questions: GeneratedQuestion[], generatedTitle: string) => {
+    setMultiQuestions(questions);
+    setIsMultiQuestionMode(true);
+    setAiGeneratorMode('none');
+    setPollType('quiz');
+    setTitle(generatedTitle);
+    
+    // Also set the first question for preview
+    if (questions.length > 0) {
+      setQuestion(questions[0].question_text);
+      setOptions(questions[0].options.map((opt, idx) => ({
+        id: String(idx + 1),
+        text: opt.option_text,
+      })));
+      const correctIdx = questions[0].options.findIndex(opt => opt.is_correct);
+      if (correctIdx >= 0) {
+        setCorrectAnswer(String(correctIdx + 1));
+      }
+      setTimeLimit(questions[0].time_limit);
+    }
+    
+    toast.success(`Loaded ${questions.length} questions from AI!`);
   };
 
   // Types that need custom options
@@ -183,7 +222,41 @@ const CreateSession = () => {
     setIsLoading(true);
     
     try {
-      // Build options based on type
+      // Check if we're in multi-question mode (AI generated)
+      if (isMultiQuestionMode && multiQuestions.length > 0) {
+        // Create session with multiple questions
+        const sessionData = {
+          title,
+          type: 'quiz' as const,
+          status: launch ? ('active' as const) : ('draft' as const),
+          questions: multiQuestions.map(q => ({
+            text: q.question_text,
+            type: 'mcq' as const,
+            timeLimit: q.time_limit,
+            points: 100,
+            options: q.options.map(opt => ({
+              text: opt.option_text,
+              isCorrect: opt.is_correct,
+            })),
+          })),
+          modes,
+        };
+
+        const session = await createSession(sessionData);
+        
+        if (session) {
+          if (launch) {
+            toast.success("Quiz launched with " + multiQuestions.length + " questions!");
+            navigate(`/session/${session.code}?host=true`);
+          } else {
+            toast.success("Quiz saved as draft");
+            navigate("/dashboard");
+          }
+        }
+        return;
+      }
+
+      // Single question mode - Build options based on type
       let sessionOptions: { text: string; isCorrect?: boolean }[] = [];
       
       if (pollType === "yesno") {
@@ -228,7 +301,7 @@ const CreateSession = () => {
       if (session) {
         if (launch) {
           toast.success("Session launched!");
-          navigate(`/session/${session.code}`);
+          navigate(`/session/${session.code}?host=true`);
         } else {
           toast.success("Session saved as draft");
           navigate("/dashboard");
@@ -317,6 +390,96 @@ const CreateSession = () => {
             })}
           </div>
         </section>
+
+        {/* AI Quiz Generator Section - Show for quiz type */}
+        {pollType === 'quiz' && (
+          <section className="space-y-4">
+            {aiGeneratorMode === 'topic' ? (
+              <TopicQuizGenerator
+                onQuestionsGenerated={handleAIQuestionsGenerated}
+                onClose={() => setAiGeneratorMode('none')}
+              />
+            ) : aiGeneratorMode === 'pdf' ? (
+              <PDFQuizGenerator
+                onQuestionsGenerated={handleAIQuestionsGenerated}
+                onClose={() => setAiGeneratorMode('none')}
+              />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Generate from Topic */}
+                <Card 
+                  className="cursor-pointer hover:border-primary transition-colors"
+                  onClick={() => setAiGeneratorMode('topic')}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <BookOpen className="w-6 h-6 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-display font-bold">Generate from Topic</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Enter any topic and let AI create questions
+                        </p>
+                      </div>
+                      <Sparkles className="w-5 h-5 text-primary" />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Generate from PDF */}
+                <Card 
+                  className="cursor-pointer hover:border-primary transition-colors"
+                  onClick={() => setAiGeneratorMode('pdf')}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-spark-coral/10 flex items-center justify-center">
+                        <FileText className="w-6 h-6 text-spark-coral" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-display font-bold">Generate from PDF</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Upload a PDF and extract quiz questions
+                        </p>
+                      </div>
+                      <Sparkles className="w-5 h-5 text-spark-coral" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Show multi-question indicator */}
+            {isMultiQuestionMode && multiQuestions.length > 0 && (
+              <Card className="border-primary bg-primary/5">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                        <Sparkles className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{multiQuestions.length} Questions Loaded</p>
+                        <p className="text-sm text-muted-foreground">AI-generated quiz ready to launch</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setIsMultiQuestionMode(false);
+                        setMultiQuestions([]);
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </section>
+        )}
 
         {/* Session Details */}
         <Card variant="elevated">
@@ -636,6 +799,38 @@ const CreateSession = () => {
                   />
                 </div>
               )}
+
+              {/* Chaos Mode */}
+              <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${
+                modes.chaosMode 
+                  ? 'border-spark-coral bg-gradient-to-r from-spark-coral/10 to-amber-500/10' 
+                  : 'border-border hover:border-primary/30'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    modes.chaosMode 
+                      ? 'bg-gradient-to-br from-spark-coral to-amber-500' 
+                      : 'bg-spark-coral/10'
+                  }`}>
+                    <Flame className={`w-5 h-5 ${modes.chaosMode ? 'text-white' : 'text-spark-coral'}`} />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      Chaos Mode
+                      {modes.chaosMode && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-spark-coral/20 text-spark-coral font-medium animate-pulse">
+                          ACTIVE
+                        </span>
+                      )}
+                    </h4>
+                    <p className="text-xs text-muted-foreground">Unleash animated effects and reactions for excitement</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={modes.chaosMode}
+                  onCheckedChange={(checked) => updateMode('chaosMode', checked)}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -652,12 +847,12 @@ const CreateSession = () => {
                 {question || "Your question will appear here"}
               </h3>
               {pollType !== "wordcloud" && (
-                <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
                   {options.filter(o => o.text).map((option, index) => (
                     <Button
                       key={option.id}
                       variant="outline"
-                      className="h-auto py-4 px-6"
+                      className="h-auto w-full justify-start text-left whitespace-normal leading-snug py-4 px-4"
                     >
                       <span className="font-semibold mr-2">{String.fromCharCode(65 + index)}</span>
                       {option.text}

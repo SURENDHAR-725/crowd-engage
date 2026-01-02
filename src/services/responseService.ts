@@ -39,10 +39,12 @@ export interface ResponseAggregation {
 }
 
 export interface LeaderboardEntry {
+  id: string;
   participantId: string;
   nickname: string;
   avatar: string | null;
   score: number;
+  correct_answers: number;
   correctAnswers: number;
   streak: number;
   rank: number;
@@ -302,12 +304,27 @@ class ResponseService {
         return [];
       }
 
+      // Get correct answer counts from responses
+      const participantIds = (data || []).map((p: any) => p.id);
+      const { data: responses } = await supabase
+        .from('responses')
+        .select('participant_id, is_correct')
+        .in('participant_id', participantIds)
+        .eq('is_correct', true);
+
+      const correctCounts: Record<string, number> = {};
+      (responses || []).forEach((r: any) => {
+        correctCounts[r.participant_id] = (correctCounts[r.participant_id] || 0) + 1;
+      });
+
       return (data || []).map((p: any, index) => ({
+        id: p.id,
         participantId: p.id,
         nickname: p.nickname || 'Anonymous',
         avatar: p.avatar,
         score: p.score || 0,
-        correctAnswers: 0, // TODO: Calculate from responses
+        correct_answers: correctCounts[p.id] || 0,
+        correctAnswers: correctCounts[p.id] || 0,
         streak: p.streak || 0,
         rank: index + 1,
       }));
@@ -378,6 +395,9 @@ class ResponseService {
    * Subscribe to participant changes
    */
   subscribeToParticipants(sessionId: string, callback: (participants: Participant[]) => void) {
+    // Immediately fetch current participants
+    this.fetchParticipants(sessionId).then(callback);
+
     const channel = supabase
       .channel(`participants:${sessionId}`)
       .on(
@@ -390,13 +410,8 @@ class ResponseService {
         },
         async () => {
           // Fetch updated participants
-          const { data } = await supabase
-            .from('participants')
-            .select('*')
-            .eq('session_id', sessionId)
-            .eq('is_blocked', false);
-
-          callback((data || []) as Participant[]);
+          const participants = await this.fetchParticipants(sessionId);
+          callback(participants);
         }
       )
       .subscribe();
@@ -404,6 +419,19 @@ class ResponseService {
     return () => {
       supabase.removeChannel(channel);
     };
+  }
+
+  /**
+   * Helper to fetch participants for a session
+   */
+  private async fetchParticipants(sessionId: string): Promise<Participant[]> {
+    const { data } = await supabase
+      .from('participants')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('is_blocked', false);
+    
+    return (data || []) as Participant[];
   }
 
   /**
@@ -437,9 +465,12 @@ class ResponseService {
    */
   async getParticipantCount(sessionId: string): Promise<number> {
     try {
-      const { count, error } = await supabase
+      console.log('Fetching participant count for session:', sessionId);
+      
+      // Use a simpler query that just fetches IDs and counts them
+      const { data, error } = await supabase
         .from('participants')
-        .select('*', { count: 'exact', head: true })
+        .select('id')
         .eq('session_id', sessionId)
         .eq('is_blocked', false);
 
@@ -448,7 +479,9 @@ class ResponseService {
         return 0;
       }
 
-      return count || 0;
+      const count = data?.length || 0;
+      console.log('Participant count result:', count);
+      return count;
     } catch (error) {
       console.error('Error in getParticipantCount:', error);
       return 0;
@@ -457,3 +490,89 @@ class ResponseService {
 }
 
 export const responseService = new ResponseService();
+
+// Standalone helper functions for direct import
+
+/**
+ * Calculate score based on correctness and time remaining
+ */
+export function calculateScore(isCorrect: boolean, timeRemaining: number, totalTime: number): number {
+  if (!isCorrect) return 0;
+  
+  // Base score for correct answer
+  const baseScore = 100;
+  
+  // Time bonus: up to 100 extra points for quick answers
+  const timeBonus = Math.round((timeRemaining / totalTime) * 100);
+  
+  return baseScore + timeBonus;
+}
+
+/**
+ * Submit a response to a question (simplified version for direct import)
+ */
+export async function submitResponse(params: {
+  participantId: string;
+  questionId: string;
+  optionId?: string;
+  textResponse?: string;
+  isCorrect?: boolean;
+  score?: number;
+  responseTime?: number;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { data, error } = await supabase
+      .from('responses')
+      .insert({
+        participant_id: params.participantId,
+        question_id: params.questionId,
+        option_id: params.optionId || null,
+        text_response: params.textResponse || null,
+        is_correct: params.isCorrect ?? false,
+        points_earned: params.score || 0,
+        response_time: params.responseTime || null,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error submitting response:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Update participant's score directly
+    if (params.score && params.score > 0) {
+      try {
+        // Try to use RPC if available
+        const { error: rpcError } = await supabase.rpc('increment_score', {
+          participant_id: params.participantId,
+          amount: params.score,
+        });
+
+        // If RPC doesn't exist, do a manual update
+        if (rpcError) {
+          const { data: participant } = await supabase
+            .from('participants')
+            .select('score')
+            .eq('id', params.participantId)
+            .single();
+
+          if (participant) {
+            await supabase
+              .from('participants')
+              .update({ score: (participant.score || 0) + params.score })
+              .eq('id', params.participantId);
+          }
+        }
+      } catch (scoreError) {
+        console.error('Error updating score:', scoreError);
+        // Non-fatal error, response was still submitted
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error in submitResponse:', error);
+    return { success: false, error: 'Failed to submit response' };
+  }
+}
