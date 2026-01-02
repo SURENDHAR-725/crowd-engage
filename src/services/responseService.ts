@@ -395,6 +395,9 @@ class ResponseService {
    * Subscribe to participant changes
    */
   subscribeToParticipants(sessionId: string, callback: (participants: Participant[]) => void) {
+    // Immediately fetch current participants
+    this.fetchParticipants(sessionId).then(callback);
+
     const channel = supabase
       .channel(`participants:${sessionId}`)
       .on(
@@ -407,13 +410,8 @@ class ResponseService {
         },
         async () => {
           // Fetch updated participants
-          const { data } = await supabase
-            .from('participants')
-            .select('*')
-            .eq('session_id', sessionId)
-            .eq('is_blocked', false);
-
-          callback((data || []) as Participant[]);
+          const participants = await this.fetchParticipants(sessionId);
+          callback(participants);
         }
       )
       .subscribe();
@@ -421,6 +419,19 @@ class ResponseService {
     return () => {
       supabase.removeChannel(channel);
     };
+  }
+
+  /**
+   * Helper to fetch participants for a session
+   */
+  private async fetchParticipants(sessionId: string): Promise<Participant[]> {
+    const { data } = await supabase
+      .from('participants')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('is_blocked', false);
+    
+    return (data || []) as Participant[];
   }
 
   /**
@@ -454,9 +465,12 @@ class ResponseService {
    */
   async getParticipantCount(sessionId: string): Promise<number> {
     try {
-      const { count, error } = await supabase
+      console.log('Fetching participant count for session:', sessionId);
+      
+      // Use a simpler query that just fetches IDs and counts them
+      const { data, error } = await supabase
         .from('participants')
-        .select('*', { count: 'exact', head: true })
+        .select('id')
         .eq('session_id', sessionId)
         .eq('is_blocked', false);
 
@@ -465,7 +479,9 @@ class ResponseService {
         return 0;
       }
 
-      return count || 0;
+      const count = data?.length || 0;
+      console.log('Participant count result:', count);
+      return count;
     } catch (error) {
       console.error('Error in getParticipantCount:', error);
       return 0;

@@ -131,20 +131,35 @@ export function useParticipantCount(sessionId?: string) {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const loadCount = async () => {
+    if (!sessionId) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await responseService.getParticipantCount(sessionId);
+      setCount(data);
+    } catch (error) {
+      console.error('Error loading participant count:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (sessionId) {
       loadCount();
+      
+      // Refresh count every 5 seconds to ensure accuracy
+      const interval = setInterval(loadCount, 5000);
+      return () => clearInterval(interval);
+    } else {
+      setLoading(false);
+      setCount(0);
     }
   }, [sessionId]);
-
-  const loadCount = async () => {
-    if (!sessionId) return;
-
-    setLoading(true);
-    const data = await responseService.getParticipantCount(sessionId);
-    setCount(data);
-    setLoading(false);
-  };
 
   // Subscribe to participant changes
   useEffect(() => {
@@ -231,11 +246,12 @@ export function useQuestionResponses(questionId?: string) {
       const { supabase } = await import('@/lib/supabase');
       const { data, error } = await supabase
         .from('responses')
-        .select('id, participant_id, option_id, is_correct, score')
+        .select('id, participant_id, option_id, is_correct')
         .eq('question_id', questionId);
 
       if (error) throw error;
-      setResponses(data || []);
+      // Add default score of 0 for backwards compatibility
+      setResponses((data || []).map(r => ({ ...r, score: 0 })));
     } catch (error) {
       console.error('Error loading question responses:', error);
       setResponses([]);

@@ -10,6 +10,7 @@ export interface SessionModes {
   allowMultipleResponses: boolean;
   showLiveResults: boolean;
   shuffleOptions: boolean;
+  chaosMode?: boolean;
 }
 
 export interface QuestionData {
@@ -117,6 +118,7 @@ class SessionService {
               allow_multiple_responses: data.modes.allowMultipleResponses,
               show_live_results: data.modes.showLiveResults,
               shuffle_options: data.modes.shuffleOptions,
+              chaos_mode: data.modes.chaosMode || false,
             } : {}),
           },
         } as any)
@@ -229,7 +231,7 @@ class SessionService {
           )
         `)
         .eq('code', code.toUpperCase())
-        .eq('status', 'active')
+        .neq('status', 'ended')
         .single();
 
       if (error) {

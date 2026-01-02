@@ -22,11 +22,15 @@ import {
   Timer,
   Crown,
   Medal,
-  Star
+  Star,
+  Flame,
+  Copy,
+  Check
 } from "lucide-react";
 import { useParticipantCount, useLeaderboard, useQuestionResponses } from "@/hooks/useResponses";
 import { useLiveQuiz } from "@/hooks/useLiveQuiz";
-import { submitResponse, calculateScore } from "@/services/responseService";
+import { submitResponse, calculateScore, responseService } from "@/services/responseService";
+import { ChaosEffects, useChaosMode } from "@/components/session/ChaosMode";
 
 interface Question {
   id: string;
@@ -43,12 +47,21 @@ interface Option {
   is_correct: boolean;
 }
 
+interface SessionSettings {
+  chaos_mode?: boolean;
+  pace_mode?: string;
+  identity_mode?: string;
+  show_live_results?: boolean;
+  shuffle_options?: boolean;
+}
+
 interface Session {
   id: string;
   title: string;
   code: string;
   status: string;
   host_id: string;
+  settings?: SessionSettings;
 }
 
 const LiveSession = () => {
@@ -71,9 +84,14 @@ const LiveSession = () => {
   const [submitting, setSubmitting] = useState(false);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [nickname, setNickname] = useState<string>("");
+  const [codeCopied, setCodeCopied] = useState(false);
 
-  const { count: participantCount, isLoading: countLoading } = useParticipantCount(resolvedSessionId || "");
-  const { leaderboard, isLoading: leaderboardLoading, refetch: refetchLeaderboard } = useLeaderboard(resolvedSessionId || "");
+  // Chaos Mode - read from session settings
+  const chaosEnabled = (session?.settings as SessionSettings)?.chaos_mode ?? false;
+  const { triggerEffect, onCorrectAnswer } = useChaosMode(chaosEnabled);
+
+  const { count: participantCount, isLoading: countLoading, refreshCount } = useParticipantCount(resolvedSessionId || undefined);
+  const { leaderboard, isLoading: leaderboardLoading, refetch: refetchLeaderboard } = useLeaderboard(resolvedSessionId || undefined);
   
   const {
     quizState,
@@ -164,15 +182,35 @@ const LiveSession = () => {
         if (questionsError) throw questionsError;
         setQuestions(questionsData || []);
 
-        // Get participant info
-        const storedParticipantId = sessionStorage.getItem(`participant_${sessionData.id}`);
-        const storedNickname = localStorage.getItem("nickname");
-        
-        if (storedParticipantId) {
-          setParticipantId(storedParticipantId);
-        }
-        if (storedNickname) {
-          setNickname(storedNickname);
+        // Get participant info - for non-host participants
+        if (!isHost) {
+          const storedParticipantId = sessionStorage.getItem(`participant_${sessionData.id}`);
+          const storedNickname = localStorage.getItem("nickname") || "";
+          
+          if (storedParticipantId) {
+            setParticipantId(storedParticipantId);
+            setNickname(storedNickname);
+          } else {
+            // Create new participant if not exists
+            const anonymousId = localStorage.getItem('crowdspark_anonymous_id') || 
+              `anon_${Math.random().toString(36).substring(2, 15)}${Date.now()}`;
+            localStorage.setItem('crowdspark_anonymous_id', anonymousId);
+            
+            const participant = await responseService.joinSession(
+              sessionData.id, 
+              anonymousId,
+              storedNickname || `Player ${Math.floor(Math.random() * 1000)}`
+            );
+            
+            if (participant) {
+              setParticipantId(participant.id);
+              setNickname(participant.nickname || "");
+              sessionStorage.setItem(`participant_${sessionData.id}`, participant.id);
+              if (participant.nickname) {
+                localStorage.setItem("nickname", participant.nickname);
+              }
+            }
+          }
         }
 
       } catch (error) {
@@ -184,7 +222,7 @@ const LiveSession = () => {
     };
 
     loadSession();
-  }, [routeSessionId, routeCode, navigate]);
+  }, [routeSessionId, routeCode, navigate, isHost]);
 
   // Subscribe to session status changes
   useEffect(() => {
@@ -281,6 +319,11 @@ const LiveSession = () => {
       setHasAnswered(true);
       toast.success(isCorrect ? "Correct! 🎉" : "Incorrect 😔");
       
+      // Trigger chaos effect on correct answer
+      if (isCorrect && chaosEnabled) {
+        onCorrectAnswer();
+      }
+      
       refetchResponses();
     } catch (error) {
       console.error("Error submitting answer:", error);
@@ -313,11 +356,13 @@ const LiveSession = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="container max-w-4xl mx-auto py-8 px-4">
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-4 w-32 mt-2" />
+      <>
+        <ChaosEffects enabled={chaosEnabled} />
+        <div className="container max-w-4xl mx-auto py-8 px-4">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-8 w-64" />
+              <Skeleton className="h-4 w-32 mt-2" />
           </CardHeader>
           <CardContent className="space-y-4">
             <Skeleton className="h-32 w-full" />
@@ -329,6 +374,7 @@ const LiveSession = () => {
           </CardContent>
         </Card>
       </div>
+      </>
     );
   }
 
@@ -347,17 +393,47 @@ const LiveSession = () => {
   // Waiting Room View
   if (session.status === "waiting" || quizState.status === "waiting") {
     return (
-      <div className="container max-w-4xl mx-auto py-8 px-4">
-        <Card className="text-center">
-          <CardHeader>
-            <CardTitle className="text-3xl">{session.title}</CardTitle>
-            <CardDescription className="text-lg mt-2">
-              {isHost ? "Waiting for participants to join..." : "Waiting for host to start..."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="py-8">
+      <>
+        <ChaosEffects enabled={chaosEnabled} />
+        {chaosEnabled && (
+          <div className="fixed top-4 right-4 z-50">
+            <Badge className="bg-gradient-to-r from-spark-coral to-amber-500 text-white px-3 py-1 animate-pulse">
+              <Flame className="w-4 h-4 mr-1 inline" />
+              Chaos Mode
+            </Badge>
+          </div>
+        )}
+        <div className="container max-w-4xl mx-auto py-8 px-4">
+          <Card className="text-center">
+            <CardHeader>
+              <CardTitle className="text-3xl">{session.title}</CardTitle>
+              <CardDescription className="text-lg mt-2">
+                {isHost ? "Waiting for participants to join..." : "Waiting for host to start..."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="py-8">
             <div className="flex flex-col items-center gap-6">
-              <div className="text-6xl font-bold text-primary">{session.code}</div>
+              <div className="flex items-center gap-3">
+                <div className="text-6xl font-bold text-primary tracking-wider">{session.code}</div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-12 w-12"
+                  onClick={() => {
+                    navigator.clipboard.writeText(session.code);
+                    setCodeCopied(true);
+                    toast.success('Code copied to clipboard!');
+                    setTimeout(() => setCodeCopied(false), 2000);
+                  }}
+                >
+                  {codeCopied ? (
+                    <Check className="h-5 w-5 text-green-500" />
+                  ) : (
+                    <Copy className="h-5 w-5" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">Share this code with participants to join</p>
               
               <div className="flex items-center gap-2 text-xl">
                 <Users className="h-6 w-6" />
@@ -383,7 +459,7 @@ const LiveSession = () => {
           </CardContent>
           
           {isHost && (
-            <CardFooter className="flex justify-center pb-8">
+            <CardFooter className="flex flex-col gap-4 pb-8">
               <Button 
                 size="lg" 
                 onClick={handleStartQuiz}
@@ -393,28 +469,40 @@ const LiveSession = () => {
                 <Play className="mr-2 h-5 w-5" />
                 Start Quiz
               </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleEndQuiz}
+                className="text-destructive hover:text-destructive"
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                End Session
+              </Button>
             </CardFooter>
           )}
         </Card>
       </div>
+      </>
     );
   }
 
   // Quiz Ended View
   if (session.status === "ended" || quizState.status === "ended") {
     return (
-      <div className="container max-w-4xl mx-auto py-8 px-4">
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-3xl flex items-center justify-center gap-2">
-              <Trophy className="h-8 w-8 text-yellow-500" />
-              Quiz Complete!
-            </CardTitle>
-            <CardDescription className="text-lg">
-              {session.title}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      <>
+        <ChaosEffects enabled={chaosEnabled} />
+        <div className="container max-w-4xl mx-auto py-8 px-4">
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl flex items-center justify-center gap-2">
+                <Trophy className="h-8 w-8 text-yellow-500" />
+                Quiz Complete!
+              </CardTitle>
+              <CardDescription className="text-lg">
+                {session.title}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-center mb-6">Final Leaderboard</h3>
               
@@ -469,29 +557,32 @@ const LiveSession = () => {
           </CardFooter>
         </Card>
       </div>
+      </>
     );
   }
 
   // Show Leaderboard View
   if (quizState.status === "leaderboard") {
     return (
-      <div className="container max-w-4xl mx-auto py-8 px-4">
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl flex items-center justify-center gap-2">
-              <Award className="h-6 w-6" />
-              Leaderboard
-            </CardTitle>
-            <CardDescription>
-              After Question {quizState.currentQuestionIndex + 1}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {leaderboardLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map(i => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
+      <>
+        <ChaosEffects enabled={chaosEnabled} />
+        <div className="container max-w-4xl mx-auto py-8 px-4">
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl flex items-center justify-center gap-2">
+                <Award className="h-6 w-6" />
+                Leaderboard
+              </CardTitle>
+              <CardDescription>
+                After Question {quizState.currentQuestionIndex + 1}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {leaderboardLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
               </div>
             ) : (
               <div className="space-y-2">
@@ -527,6 +618,7 @@ const LiveSession = () => {
           )}
         </Card>
       </div>
+      </>
     );
   }
 
@@ -546,9 +638,19 @@ const LiveSession = () => {
     const responsePercentage = participantCount > 0 ? (totalResponses / participantCount) * 100 : 0;
 
     return (
-      <div className="container max-w-6xl mx-auto py-8 px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Question Display */}
+      <>
+        <ChaosEffects enabled={chaosEnabled} />
+        {chaosEnabled && (
+          <div className="fixed top-4 right-4 z-50">
+            <Badge className="bg-gradient-to-r from-spark-coral to-amber-500 text-white px-3 py-1 animate-pulse">
+              <Flame className="w-4 h-4 mr-1 inline" />
+              Chaos Mode
+            </Badge>
+          </div>
+        )}
+        <div className="container max-w-6xl mx-auto py-8 px-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Question Display */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
@@ -732,32 +834,43 @@ const LiveSession = () => {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   // Participant View
   return (
-    <div className="container max-w-2xl mx-auto py-8 px-4">
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <Badge variant="outline">
-              Question {quizState.currentQuestionIndex + 1} of {questions.length}
-            </Badge>
-            <div className="flex items-center gap-2">
-              <Clock className={`h-5 w-5 ${quizState.timeRemaining <= 5 ? "text-red-500 animate-pulse" : ""}`} />
-              <span className={`text-xl font-bold ${quizState.timeRemaining <= 5 ? "text-red-500" : ""}`}>
-                {quizState.timeRemaining}s
-              </span>
+    <>
+      <ChaosEffects enabled={chaosEnabled} />
+      {chaosEnabled && (
+        <div className="fixed top-4 right-4 z-50">
+          <Badge className="bg-gradient-to-r from-spark-coral to-amber-500 text-white px-3 py-1 animate-pulse">
+            <Flame className="w-4 h-4 mr-1 inline" />
+            Chaos Mode
+          </Badge>
+        </div>
+      )}
+      <div className="container max-w-2xl mx-auto py-8 px-4">
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <Badge variant="outline">
+                Question {quizState.currentQuestionIndex + 1} of {questions.length}
+              </Badge>
+              <div className="flex items-center gap-2">
+                <Clock className={`h-5 w-5 ${quizState.timeRemaining <= 5 ? "text-red-500 animate-pulse" : ""}`} />
+                <span className={`text-xl font-bold ${quizState.timeRemaining <= 5 ? "text-red-500" : ""}`}>
+                  {quizState.timeRemaining}s
+                </span>
+              </div>
             </div>
-          </div>
-          <Progress 
-            value={(quizState.timeRemaining / currentQuestion.time_limit) * 100} 
-            className="mt-4"
-          />
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <h2 className="text-xl font-semibold text-center py-4">
+            <Progress 
+              value={(quizState.timeRemaining / currentQuestion.time_limit) * 100} 
+              className="mt-4"
+            />
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <h2 className="text-xl font-semibold text-center py-4">
             {currentQuestion.question_text}
           </h2>
 
@@ -828,6 +941,7 @@ const LiveSession = () => {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 };
 

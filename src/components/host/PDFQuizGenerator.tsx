@@ -1,20 +1,21 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { 
-  FileText, 
   Upload, 
   Loader2, 
   Sparkles, 
   AlertCircle,
   CheckCircle2,
-  X
+  X,
+  Cloud,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateQuizFromPDF, type GeneratedQuestion } from '@/services/aiQuizService';
+import { generateQuizFromPDF, isOpenAIConfigured, type GeneratedQuestion, type Difficulty } from '@/services/aiQuizService';
 import { toast } from 'sonner';
 
 interface PDFQuizGeneratorProps {
@@ -27,8 +28,10 @@ export function PDFQuizGenerator({ onQuestionsGenerated, onClose }: PDFQuizGener
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [questionCount, setQuestionCount] = useState(5);
-  const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [difficulty, setDifficulty] = useState<Difficulty>('medium');
+  const [uploadToCloud, setUploadToCloud] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const aiConfigured = isOpenAIConfigured();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -69,15 +72,16 @@ export function PDFQuizGenerator({ onQuestionsGenerated, onClose }: PDFQuizGener
     setError(null);
 
     try {
-      const result = await generateQuizFromPDF(file, questionCount, difficulty);
+      const result = await generateQuizFromPDF(file, questionCount, difficulty, uploadToCloud);
       
-      if (result.error) {
+      if (result.error && result.questions.length === 0) {
         setError(result.error);
         toast.error(result.error);
-      } else if (result.questions.length === 0) {
-        setError('Could not generate questions from this PDF. Try a different file.');
-        toast.error('No questions generated');
       } else {
+        if (result.error) {
+          // Show warning but continue with generated questions
+          toast.warning(result.error);
+        }
         toast.success(`Generated ${result.questions.length} questions!`);
         onQuestionsGenerated(result.questions, result.title);
       }
@@ -195,6 +199,16 @@ export function PDFQuizGenerator({ onQuestionsGenerated, onClose }: PDFQuizGener
 
         {/* Settings */}
         <div className="mt-6 space-y-4">
+          {/* AI Status */}
+          {!aiConfigured && (
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-start gap-2">
+              <Info className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-600 dark:text-amber-400">
+                OpenAI API not configured. Using basic text extraction. Add VITE_OPENAI_API_KEY for AI-powered questions.
+              </p>
+            </div>
+          )}
+
           {/* Question Count */}
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -215,7 +229,7 @@ export function PDFQuizGenerator({ onQuestionsGenerated, onClose }: PDFQuizGener
           <div>
             <Label className="mb-2 block">Difficulty</Label>
             <div className="flex gap-2">
-              {(['easy', 'medium', 'hard'] as const).map((level) => (
+              {(['easy', 'medium', 'hard', 'mixed'] as const).map((level) => (
                 <Button
                   key={level}
                   variant={difficulty === level ? 'default' : 'outline'}
@@ -227,6 +241,18 @@ export function PDFQuizGenerator({ onQuestionsGenerated, onClose }: PDFQuizGener
                 </Button>
               ))}
             </div>
+          </div>
+
+          {/* Upload to Cloud Toggle */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Cloud className="w-4 h-4 text-muted-foreground" />
+              <Label>Save PDF to cloud</Label>
+            </div>
+            <Switch
+              checked={uploadToCloud}
+              onCheckedChange={setUploadToCloud}
+            />
           </div>
         </div>
 
