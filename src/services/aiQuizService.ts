@@ -1,13 +1,25 @@
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/legacy/build/pdf';
+import * as pdfjsLib from 'pdfjs-dist';
 import { supabase, generateUniqueSessionCode } from '@/lib/supabase';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Configure PDF.js worker
-GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
 
-// OpenAI API configuration
+// Gemini API configuration (Primary)
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || 'AIzaSyDHPMjoO6LPne_FNZO4mv2XTDxEbiqdnXU';
+const GEMINI_DISABLED = import.meta.env.VITE_DISABLE_GEMINI === 'true';
+let geminiCooldownUntil = 0;
+
+// OpenAI API configuration (Fallback)
 const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
 const OPENAI_DISABLED = import.meta.env.VITE_DISABLE_OPENAI === 'true';
 let openAICooldownUntil = 0;
+
+// Initialize Gemini
+let genAI: GoogleGenerativeAI | null = null;
+if (GEMINI_API_KEY && !GEMINI_DISABLED) {
+  genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+}
 
 export interface GeneratedQuestion {
   question_text: string;
@@ -35,10 +47,59 @@ export interface SavedQuizResult {
 export type Difficulty = 'easy' | 'medium' | 'hard' | 'mixed';
 
 /**
+ * Check if Gemini API is configured
+ */
+export function isGeminiConfigured(): boolean {
+  return !!GEMINI_API_KEY && GEMINI_API_KEY !== '' && !GEMINI_DISABLED && !!genAI;
+}
+
+/**
  * Check if OpenAI API is configured
  */
 export function isOpenAIConfigured(): boolean {
   return !!OPENAI_API_KEY && OPENAI_API_KEY !== '' && !OPENAI_DISABLED;
+}
+
+/**
+ * Check if any AI service is configured
+ */
+export function isAIConfigured(): boolean {
+  return isGeminiConfigured() || isOpenAIConfigured();
+}
+
+/**
+ * Call Gemini API to generate quiz questions
+ */
+async function callGemini(prompt: string, systemPrompt: string): Promise<string> {
+  if (!isGeminiConfigured() || !genAI) {
+    throw new Error('Gemini API is not configured.');
+  }
+
+  // Simple cooldown to avoid spamming API after rate limits
+  if (Date.now() < geminiCooldownUntil) {
+    throw new Error('Gemini temporarily unavailable due to recent rate limit. Cooling down.');
+  }
+
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    
+    const fullPrompt = `${systemPrompt}\n\n${prompt}`;
+    
+    const result = await model.generateContent(fullPrompt);
+    const response = await result.response;
+    const text = response.text();
+    
+    return text;
+  } catch (error: any) {
+    // Handle rate limiting
+    if (error.message?.includes('429') || error.message?.includes('quota') || error.message?.includes('rate limit')) {
+      geminiCooldownUntil = Date.now() + 5 * 60 * 1000; // 5 minute backoff
+      console.warn('Gemini rate limited, backing off for 5 minutes');
+      throw new Error('Gemini API rate limit exceeded. Please try again later.');
+    }
+    
+    throw error;
+  }
 }
 
 /**
@@ -87,6 +148,42 @@ async function callOpenAI(prompt: string, systemPrompt: string): Promise<string>
 
   const data = await response.json();
   return data.choices[0]?.message?.content || '';
+}
+
+/**
+ * Call AI service (tries Gemini first, falls back to OpenAI)
+ */
+async function callAI(prompt: string, systemPrompt: string): Promise<string> {
+  let lastError: Error | null = null;
+  
+  // Try Gemini first (primary)
+  if (isGeminiConfigured()) {
+    try {
+      console.log('Using Gemini API for quiz generation');
+      return await callGemini(prompt, systemPrompt);
+    } catch (error) {
+      console.warn('Gemini API failed, trying OpenAI fallback:', error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+  
+  // Try OpenAI as fallback
+  if (isOpenAIConfigured()) {
+    try {
+      console.log('Using OpenAI API for quiz generation');
+      return await callOpenAI(prompt, systemPrompt);
+    } catch (error) {
+      console.warn('OpenAI API also failed:', error);
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+  
+  // If both failed or neither configured
+  if (lastError) {
+    throw lastError;
+  }
+  
+  throw new Error('No AI service is configured. Please add VITE_GEMINI_API_KEY or VITE_OPENAI_API_KEY to your environment variables.');
 }
 
 /**
@@ -172,13 +269,13 @@ Requirements:
 Return ONLY a valid JSON array, no other text.`;
 
   try {
-    // Check if OpenAI is configured, if not fall back to rule-based
-    if (!isOpenAIConfigured()) {
-      console.warn('OpenAI not configured, using fallback generation');
+    // Check if any AI service is configured, if not fall back to rule-based
+    if (!isAIConfigured()) {
+      console.warn('No AI service configured, using fallback generation');
       return generateFallbackQuiz(topic, questionCount, difficulty);
     }
 
-    const response = await callOpenAI(prompt, systemPrompt);
+    const response = await callAI(prompt, systemPrompt);
     const questions = parseQuestionsFromResponse(response, difficulty);
 
     if (questions.length === 0) {
@@ -197,11 +294,11 @@ Return ONLY a valid JSON array, no other text.`;
     console.error('Error generating quiz from topic:', error);
     const message = error instanceof Error ? error.message : 'Failed to generate quiz';
     
-    // If OpenAI fails for any API reason (quota, rate limit, etc.), use fallback
+    // If AI API fails for any reason (quota, rate limit, etc.), use fallback
     if (message.includes('API key') || message.includes('quota') || message.includes('429') || message.includes('rate')) {
-      console.warn('OpenAI API issue, using fallback generation');
+      console.warn('AI API issue, using fallback generation');
       const fallback = generateFallbackQuiz(topic, questionCount, difficulty);
-      fallback.error = `OpenAI API unavailable: ${message.substring(0, 100)}. Using placeholder questions.`;
+      fallback.error = `AI API unavailable: ${message.substring(0, 100)}. Using placeholder questions.`;
       return fallback;
     }
     
@@ -251,7 +348,7 @@ function generateFallbackQuiz(topic: string, count: number, difficulty: Difficul
   return {
     questions,
     title: `Quiz: ${topic}`,
-    error: !isOpenAIConfigured() ? 'OpenAI API not configured. Using placeholder questions. Add VITE_OPENAI_API_KEY for AI-generated questions.' : undefined,
+    error: !isAIConfigured() ? 'AI API not configured. Using placeholder questions. Add VITE_GEMINI_API_KEY or VITE_OPENAI_API_KEY for AI-generated questions.' : undefined,
   };
 }
 /**
@@ -260,7 +357,7 @@ function generateFallbackQuiz(topic: string, count: number, difficulty: Difficul
 export async function extractTextFromPDF(file: File): Promise<string> {
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await getDocument({ data: arrayBuffer }).promise;
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     
     let fullText = '';
     
@@ -344,9 +441,9 @@ export async function generateQuizFromPDF(
       };
     }
 
-    // Check if OpenAI is configured
-    if (!isOpenAIConfigured()) {
-      console.warn('OpenAI not configured, using rule-based extraction');
+    // Check if any AI service is configured
+    if (!isAIConfigured()) {
+      console.warn('No AI service configured, using rule-based extraction');
       return {
         ...generateRuleBasedFromText(text, questionCount, difficulty),
         pdfUrl,
@@ -421,11 +518,11 @@ Requirements:
 Return ONLY a valid JSON array, no other text.`;
 
   try {
-    if (!isOpenAIConfigured()) {
+    if (!isAIConfigured()) {
       return generateRuleBasedFromText(text, questionCount, difficulty);
     }
 
-    const response = await callOpenAI(prompt, systemPrompt);
+    const response = await callAI(prompt, systemPrompt);
     const questions = parseQuestionsFromResponse(response, difficulty);
 
     // Generate title from content
@@ -443,11 +540,11 @@ Return ONLY a valid JSON array, no other text.`;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to generate quiz';
     
-    // If OpenAI fails for any API reason, use rule-based fallback
+    // If AI API fails for any reason, use rule-based fallback
     if (message.includes('quota') || message.includes('429') || message.includes('rate') || message.includes('API')) {
-      console.warn('OpenAI API issue, using rule-based text extraction');
+      console.warn('AI API issue, using rule-based text extraction');
       const fallback = generateRuleBasedFromText(text, questionCount, difficulty);
-      fallback.error = `OpenAI unavailable. Using basic text extraction instead.`;
+      fallback.error = `AI API unavailable. Using basic text extraction instead.`;
       return fallback;
     }
     
@@ -510,7 +607,7 @@ function generateRuleBasedFromText(text: string, count: number, difficulty: Diff
   return {
     questions,
     title: `Quiz: ${titleWords.substring(0, 40)}...`,
-    error: !isOpenAIConfigured() ? 'Using basic extraction. Add VITE_OPENAI_API_KEY for AI-powered questions.' : undefined,
+    error: !isAIConfigured() ? 'Using basic extraction. Add VITE_GEMINI_API_KEY or VITE_OPENAI_API_KEY for AI-powered questions.' : undefined,
   };
 }
 
