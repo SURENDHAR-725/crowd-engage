@@ -86,19 +86,20 @@ export interface SessionWithDetails extends Session {
 
 class SessionService {
   /**
-   * Create a new session with question and options
+   * Create a new session with questions and options
    */
   async createSession(hostId: string, data: CreateSessionData): Promise<SessionWithDetails | null> {
     try {
       // Generate unique session code
       const code = await generateUniqueSessionCode();
 
-      // Get the first question from the questions array
-      const firstQuestion = data.questions[0];
-      if (!firstQuestion) {
+      // Validate that we have at least one question
+      if (!data.questions || data.questions.length === 0) {
         console.error('No questions provided');
         return null;
       }
+
+      const firstQuestion = data.questions[0];
 
       // Create session
       const { data: session, error: sessionError } = await supabase
@@ -128,52 +129,62 @@ class SessionService {
         return null;
       }
 
-      // Create question
-      const { data: question, error: questionError } = await supabase
-        .from('questions')
-        .insert({
-          session_id: (session as any).id,
-          question_text: firstQuestion.text,
-          question_type: firstQuestion.type,
-          time_limit: firstQuestion.timeLimit || null,
-          order_index: 0,
-        } as any)
-        .select()
-        .single();
+      // Create ALL questions from the array
+      const createdQuestions: (Question & { options: Option[] })[] = [];
+      
+      for (let i = 0; i < data.questions.length; i++) {
+        const questionData = data.questions[i];
+        
+        // Create question
+        const { data: question, error: questionError } = await supabase
+          .from('questions')
+          .insert({
+            session_id: (session as any).id,
+            question_text: questionData.text,
+            question_type: questionData.type,
+            time_limit: questionData.timeLimit || 30,
+            order_index: i,
+          } as any)
+          .select()
+          .single();
 
-      if (questionError || !question) {
-        console.error('Error creating question:', questionError);
-        return null;
-      }
-
-      // Create options (if not word cloud)
-      let options: Option[] = [];
-      if (firstQuestion.options && firstQuestion.options.length > 0) {
-        const optionsToInsert = firstQuestion.options.map((opt, index) => ({
-          question_id: (question as any).id,
-          option_text: opt.text,
-          order_index: index,
-          is_correct: opt.isCorrect || false,
-        }));
-
-        const { data: createdOptions, error: optionsError } = await supabase
-          .from('options')
-          .insert(optionsToInsert as any)
-          .select();
-
-        if (optionsError) {
-          console.error('Error creating options:', optionsError);
-        } else if (createdOptions) {
-          options = createdOptions;
+        if (questionError || !question) {
+          console.error('Error creating question:', questionError);
+          continue;
         }
+
+        // Create options (if not word cloud)
+        let options: Option[] = [];
+        if (questionData.options && questionData.options.length > 0) {
+          const optionsToInsert = questionData.options.map((opt, index) => ({
+            question_id: (question as any).id,
+            option_text: opt.text,
+            order_index: index,
+            is_correct: opt.isCorrect || false,
+          }));
+
+          const { data: createdOptions, error: optionsError } = await supabase
+            .from('options')
+            .insert(optionsToInsert as any)
+            .select();
+
+          if (optionsError) {
+            console.error('Error creating options:', optionsError);
+          } else if (createdOptions) {
+            options = createdOptions;
+          }
+        }
+
+        createdQuestions.push({
+          ...(question as Question),
+          options,
+        });
       }
 
       return {
         ...(session as Session),
-        question: {
-          ...(question as Question),
-          options,
-        },
+        questions: createdQuestions,
+        question: createdQuestions[0], // Keep backward compatibility
       };
     } catch (error) {
       console.error('Error in createSession:', error);

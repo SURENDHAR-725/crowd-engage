@@ -85,6 +85,7 @@ const LiveSession = () => {
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [nickname, setNickname] = useState<string>("");
   const [codeCopied, setCodeCopied] = useState(false);
+  const [showParticipantLeaderboard, setShowParticipantLeaderboard] = useState(false);
 
   // Chaos Mode - read from session settings
   const chaosEnabled = (session?.settings as SessionSettings)?.chaos_mode ?? false;
@@ -253,6 +254,7 @@ const LiveSession = () => {
   useEffect(() => {
     setSelectedOption(null);
     setHasAnswered(false);
+    setShowParticipantLeaderboard(false);
     
     // Check if participant already answered this question
     const checkExistingAnswer = async () => {
@@ -272,6 +274,15 @@ const LiveSession = () => {
     
     checkExistingAnswer();
   }, [quizState.currentQuestionIndex, currentQuestion?.id, participantId]);
+
+  // Show leaderboard when answers are revealed
+  useEffect(() => {
+    if (quizState.isRevealing && !isHost) {
+      // Refresh leaderboard when revealing answers
+      refetchLeaderboard();
+      setShowParticipantLeaderboard(true);
+    }
+  }, [quizState.isRevealing, isHost, refetchLeaderboard]);
 
   // Host: Start the quiz
   const handleStartQuiz = async () => {
@@ -324,6 +335,8 @@ const LiveSession = () => {
         onCorrectAnswer();
       }
       
+      // Refresh leaderboard after submitting answer
+      refetchLeaderboard();
       refetchResponses();
     } catch (error) {
       console.error("Error submitting answer:", error);
@@ -912,11 +925,108 @@ const LiveSession = () => {
           </div>
 
           {hasAnswered && !quizState.isRevealing && (
-            <div className="text-center py-4">
+            <div className="text-center py-4 space-y-3">
               <Badge variant="secondary" className="text-lg px-4 py-2">
                 <CheckCircle2 className="mr-2 h-4 w-4 inline" />
                 Answer submitted! Waiting for results...
               </Badge>
+              <div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowParticipantLeaderboard(!showParticipantLeaderboard);
+                    if (!showParticipantLeaderboard) {
+                      refetchLeaderboard();
+                    }
+                  }}
+                >
+                  <Trophy className="h-4 w-4 mr-2" />
+                  {showParticipantLeaderboard ? "Hide Leaderboard" : "Show Leaderboard"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Live Leaderboard for Participants - Shows after answering or when revealed */}
+          {(showParticipantLeaderboard || (hasAnswered && quizState.isRevealing)) && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <Trophy className="h-5 w-5 text-yellow-500" />
+                <h3 className="text-lg font-semibold">Live Leaderboard</h3>
+              </div>
+              {leaderboardLoading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-10 w-full" />
+                  ))}
+                </div>
+              ) : leaderboard.length === 0 ? (
+                <p className="text-center text-muted-foreground text-sm">No scores yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {leaderboard.slice(0, 5).map((entry, index) => {
+                    const isCurrentUser = entry.id === participantId || entry.participantId === participantId;
+                    return (
+                      <div 
+                        key={entry.id}
+                        className={`flex items-center justify-between p-3 rounded-lg transition-all ${
+                          isCurrentUser 
+                            ? "bg-primary/10 border-2 border-primary" 
+                            : index === 0 
+                              ? "bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400"
+                              : "bg-muted/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 text-center">
+                            {index === 0 ? (
+                              <Crown className="h-5 w-5 text-yellow-500 mx-auto" />
+                            ) : index === 1 ? (
+                              <Medal className="h-5 w-5 text-gray-400 mx-auto" />
+                            ) : index === 2 ? (
+                              <Medal className="h-5 w-5 text-orange-400 mx-auto" />
+                            ) : (
+                              <span className="text-sm font-bold text-muted-foreground">#{index + 1}</span>
+                            )}
+                          </div>
+                          <span className={`font-medium ${isCurrentUser ? "text-primary" : ""}`}>
+                            {entry.nickname} {isCurrentUser && "(You)"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Star className="h-4 w-4 text-primary" />
+                          <span className="font-bold">{entry.score}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Show current user if not in top 5 */}
+                  {leaderboard.length > 5 && participantId && !leaderboard.slice(0, 5).some(e => e.id === participantId || e.participantId === participantId) && (
+                    <>
+                      <div className="text-center text-muted-foreground text-sm py-1">• • •</div>
+                      {leaderboard.filter(e => e.id === participantId || e.participantId === participantId).map((entry, idx) => {
+                        const actualRank = leaderboard.findIndex(e => e.id === participantId || e.participantId === participantId) + 1;
+                        return (
+                          <div 
+                            key={entry.id}
+                            className="flex items-center justify-between p-3 rounded-lg bg-primary/10 border-2 border-primary"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="w-8 text-sm font-bold text-center">#{actualRank}</span>
+                              <span className="font-medium text-primary">{entry.nickname} (You)</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Star className="h-4 w-4 text-primary" />
+                              <span className="font-bold">{entry.score}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

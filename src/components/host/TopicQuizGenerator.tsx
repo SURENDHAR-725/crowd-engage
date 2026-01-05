@@ -15,7 +15,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { generateQuizFromTopic, isOpenAIConfigured, type GeneratedQuestion, type Difficulty } from '@/services/aiQuizService';
+import { generateQuizFromTopic, isAIConfigured, type GeneratedQuestion, type Difficulty } from '@/services/aiQuizService';
 import { toast } from 'sonner';
 
 interface TopicQuizGeneratorProps {
@@ -41,7 +41,7 @@ export function TopicQuizGenerator({ onQuestionsGenerated, onClose }: TopicQuizG
   const [error, setError] = useState<string | null>(null);
   const [questionCount, setQuestionCount] = useState(5);
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
-  const aiConfigured = isOpenAIConfigured();
+  const aiConfigured = isAIConfigured();
 
   const handleGenerate = async () => {
     if (!topic.trim()) {
@@ -106,7 +106,7 @@ export function TopicQuizGenerator({ onQuestionsGenerated, onClose }: TopicQuizG
           >
             <Info className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
             <p className="text-sm text-amber-600 dark:text-amber-400">
-              OpenAI API not configured. Placeholder questions will be generated. Add VITE_OPENAI_API_KEY for AI-powered questions.
+              NVIDIA API not configured. Add VITE_NVIDIA_API_KEY to your .env file for AI-powered questions.
             </p>
           </motion.div>
         )}

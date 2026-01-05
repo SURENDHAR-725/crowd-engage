@@ -438,8 +438,9 @@ class ResponseService {
    * Subscribe to leaderboard changes
    */
   subscribeToLeaderboard(sessionId: string, callback: (leaderboard: LeaderboardEntry[]) => void) {
-    const channel = supabase
-      .channel(`leaderboard:${sessionId}`)
+    // Subscribe to participant score changes
+    const participantChannel = supabase
+      .channel(`leaderboard-participants:${sessionId}`)
       .on(
         'postgres_changes',
         {
@@ -455,8 +456,29 @@ class ResponseService {
       )
       .subscribe();
 
+    // Also subscribe to responses to catch score updates immediately
+    const responsesChannel = supabase
+      .channel(`leaderboard-responses:${sessionId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'responses',
+        },
+        async () => {
+          // Small delay to allow score update to complete
+          setTimeout(async () => {
+            const leaderboard = await this.getLeaderboard(sessionId);
+            callback(leaderboard);
+          }, 300);
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(participantChannel);
+      supabase.removeChannel(responsesChannel);
     };
   }
 

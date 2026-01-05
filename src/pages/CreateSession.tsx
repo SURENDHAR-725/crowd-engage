@@ -152,6 +152,17 @@ const CreateSession = () => {
   const [aiGeneratorMode, setAiGeneratorMode] = useState<AIGeneratorMode>('none');
   const [multiQuestions, setMultiQuestions] = useState<GeneratedQuestion[]>([]);
   const [isMultiQuestionMode, setIsMultiQuestionMode] = useState(false);
+  
+  // Manual multi-question mode for polls
+  const [pollQuestions, setPollQuestions] = useState<Array<{
+    id: string;
+    question: string;
+    options: PollOption[];
+    correctAnswer?: string;
+    timeLimit?: number;
+  }>>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [isManualMultiMode, setIsManualMultiMode] = useState(false);
 
   const updateMode = <K extends keyof SessionModes>(key: K, value: SessionModes[K]) => {
     setModes(prev => ({ ...prev, [key]: value }));
@@ -171,6 +182,65 @@ const CreateSession = () => {
 
   const updateOption = (id: string, text: string) => {
     setOptions(options.map(opt => opt.id === id ? { ...opt, text } : opt));
+  };
+
+  // Add current question to poll questions list
+  const addPollQuestion = () => {
+    if (!question.trim()) {
+      toast.error("Please enter a question");
+      return;
+    }
+    if (needsOptions && options.filter(o => o.text.trim()).length < 2) {
+      toast.error("Please add at least 2 options");
+      return;
+    }
+    if (pollType === "quiz" && !correctAnswer) {
+      toast.error("Please select the correct answer");
+      return;
+    }
+
+    const newQuestion = {
+      id: Date.now().toString(),
+      question: question,
+      options: [...options],
+      correctAnswer: pollType === "quiz" ? correctAnswer : undefined,
+      timeLimit: ["quiz", "minigame", "battle"].includes(pollType) ? timeLimit : undefined,
+    };
+
+    setPollQuestions([...pollQuestions, newQuestion]);
+    setIsManualMultiMode(true);
+    
+    // Reset form for next question
+    setQuestion("");
+    setOptions([
+      { id: Date.now().toString(), text: "" },
+      { id: (Date.now() + 1).toString(), text: "" },
+    ]);
+    setCorrectAnswer("");
+    
+    toast.success(`Question ${pollQuestions.length + 1} added`);
+  };
+
+  // Remove a poll question
+  const removePollQuestion = (id: string) => {
+    setPollQuestions(pollQuestions.filter(q => q.id !== id));
+    if (pollQuestions.length <= 1) {
+      setIsManualMultiMode(false);
+    }
+  };
+
+  // Edit a poll question
+  const editPollQuestion = (id: string) => {
+    const questionToEdit = pollQuestions.find(q => q.id === id);
+    if (questionToEdit) {
+      setQuestion(questionToEdit.question);
+      setOptions(questionToEdit.options);
+      setCorrectAnswer(questionToEdit.correctAnswer || "");
+      if (questionToEdit.timeLimit) {
+        setTimeLimit(questionToEdit.timeLimit);
+      }
+      removePollQuestion(id);
+    }
   };
 
   // Handle AI-generated questions
@@ -206,22 +276,91 @@ const CreateSession = () => {
       toast.error("Please enter a session title");
       return;
     }
-    if (!question.trim()) {
-      toast.error("Please enter a question");
+    
+    // For manual multi-mode, we need at least one saved question
+    if (isManualMultiMode && pollQuestions.length === 0) {
+      toast.error("Please add at least one question using the 'Add Question' button");
       return;
     }
-    if (needsOptions && options.filter(o => o.text.trim()).length < 2) {
-      toast.error("Please add at least 2 options");
-      return;
-    }
-    if (pollType === "quiz" && !correctAnswer) {
-      toast.error("Please select the correct answer");
-      return;
+    
+    // For single question mode, validate current question
+    if (!isManualMultiMode && !isMultiQuestionMode) {
+      if (!question.trim()) {
+        toast.error("Please enter a question");
+        return;
+      }
+      if (needsOptions && options.filter(o => o.text.trim()).length < 2) {
+        toast.error("Please add at least 2 options");
+        return;
+      }
+      if (pollType === "quiz" && !correctAnswer) {
+        toast.error("Please select the correct answer");
+        return;
+      }
     }
 
     setIsLoading(true);
     
     try {
+      // Check if we're in manual multi-question mode for polls
+      if (isManualMultiMode && pollQuestions.length > 0) {
+        const allQuestions = pollQuestions.map(q => {
+          let sessionOptions: { text: string; isCorrect?: boolean }[] = [];
+          
+          if (pollType === "yesno") {
+            sessionOptions = [
+              { text: "Yes", isCorrect: false },
+              { text: "No", isCorrect: false },
+            ];
+          } else if (pollType === "rating") {
+            sessionOptions = [1, 2, 3, 4, 5].map(n => ({
+              text: String(n),
+              isCorrect: false,
+            }));
+          } else if (needsOptions) {
+            sessionOptions = q.options
+              .filter(o => o.text.trim())
+              .map(o => ({
+                text: o.text,
+                isCorrect: pollType === 'quiz' ? o.id === q.correctAnswer : false
+              }));
+          }
+
+          const questionType = pollType === 'yesno' ? 'true-false' as const : 
+                               pollType === 'rating' ? 'poll' as const : 
+                               pollType === 'wordcloud' ? 'open-ended' as const : 'mcq' as const;
+
+          return {
+            text: q.question,
+            type: questionType,
+            timeLimit: q.timeLimit,
+            points: 100,
+            options: sessionOptions,
+          };
+        });
+
+        const sessionData = {
+          title,
+          type: pollType,
+          status: launch ? ('active' as const) : ('draft' as const),
+          questions: allQuestions,
+          modes,
+        };
+
+        const session = await createSession(sessionData);
+        
+        if (session) {
+          if (launch) {
+            toast.success(`Session launched with ${pollQuestions.length} questions!`);
+            navigate(`/session/${session.code}?host=true`);
+          } else {
+            toast.success("Session saved as draft");
+            navigate("/dashboard");
+          }
+        }
+        return;
+      }
+      
       // Check if we're in multi-question mode (AI generated)
       if (isMultiQuestionMode && multiQuestions.length > 0) {
         // Create session with multiple questions
@@ -450,18 +589,18 @@ const CreateSession = () => {
               </div>
             )}
 
-            {/* Show multi-question indicator */}
+            {/* Show multi-question indicator with review */}
             {isMultiQuestionMode && multiQuestions.length > 0 && (
               <Card className="border-primary bg-primary/5">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
                         <Sparkles className="w-5 h-5 text-primary" />
                       </div>
                       <div>
                         <p className="font-medium">{multiQuestions.length} Questions Loaded</p>
-                        <p className="text-sm text-muted-foreground">AI-generated quiz ready to launch</p>
+                        <p className="text-sm text-muted-foreground">Review questions before launching</p>
                       </div>
                     </div>
                     <Button
@@ -472,13 +611,133 @@ const CreateSession = () => {
                         setMultiQuestions([]);
                       }}
                     >
-                      Clear
+                      Clear All
                     </Button>
+                  </div>
+                  
+                  {/* Questions Review List */}
+                  <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                    {multiQuestions.map((q, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 rounded-lg bg-background border border-border hover:border-primary/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">
+                              <span className="text-primary mr-2">Q{idx + 1}.</span>
+                              {q.question_text}
+                            </p>
+                            <div className="mt-2 grid grid-cols-2 gap-1">
+                              {q.options.map((opt, optIdx) => (
+                                <div 
+                                  key={optIdx}
+                                  className={`text-xs px-2 py-1 rounded ${
+                                    opt.is_correct 
+                                      ? 'bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30' 
+                                      : 'bg-muted text-muted-foreground'
+                                  }`}
+                                >
+                                  {opt.is_correct && '✓ '}{opt.option_text}
+                                </div>
+                              ))}
+                            </div>
+                            {q.explanation && (
+                              <p className="text-xs text-muted-foreground mt-2 italic">
+                                💡 {q.explanation}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                            onClick={() => {
+                              setMultiQuestions(prev => prev.filter((_, i) => i !== idx));
+                              if (multiQuestions.length <= 1) {
+                                setIsMultiQuestionMode(false);
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <Timer className="h-3 w-3" />
+                            {q.time_limit}s
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
             )}
           </section>
+        )}
+
+        {/* Manual Multi-Question Mode for Polls */}
+        {isManualMultiMode && pollQuestions.length > 0 && (
+          <Card className="border-spark-teal bg-spark-teal/5">
+            <CardContent className="p-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-spark-teal/20 flex items-center justify-center">
+                      <BarChart3 className="w-5 h-5 text-spark-teal" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{pollQuestions.length} Question{pollQuestions.length > 1 ? 's' : ''} Added</p>
+                      <p className="text-sm text-muted-foreground">Ready to save or add more</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsManualMultiMode(false);
+                      setPollQuestions([]);
+                    }}
+                  >
+                    Clear All
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {pollQuestions.map((q, idx) => (
+                    <div
+                      key={q.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-background border border-border hover:border-spark-teal/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">Q{idx + 1}: {q.question}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {q.options.filter(o => o.text).length} options
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => editPollQuestion(q.id)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => removePollQuestion(q.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Session Details */}
@@ -630,6 +889,23 @@ const CreateSession = () => {
                     </Button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Add Question Button for multi-question mode */}
+            {!isMultiQuestionMode && ["mcq", "poll", "yesno", "rating", "wordcloud"].includes(pollType) && (
+              <div className="pt-4 border-t border-border">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={addPollQuestion}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add This Question & Create Another
+                </Button>
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  Create multiple questions for this session
+                </p>
               </div>
             )}
           </CardContent>

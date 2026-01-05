@@ -15,7 +15,7 @@ import {
   Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateQuizFromPDF, isOpenAIConfigured, type GeneratedQuestion, type Difficulty } from '@/services/aiQuizService';
+import { generateQuizFromPDF, isAIConfigured, type GeneratedQuestion, type Difficulty } from '@/services/aiQuizService';
 import { toast } from 'sonner';
 
 interface PDFQuizGeneratorProps {
@@ -31,7 +31,7 @@ export function PDFQuizGenerator({ onQuestionsGenerated, onClose }: PDFQuizGener
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [uploadToCloud, setUploadToCloud] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const aiConfigured = isOpenAIConfigured();
+  const aiConfigured = isAIConfigured();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
