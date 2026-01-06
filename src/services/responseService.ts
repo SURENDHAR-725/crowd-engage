@@ -509,6 +509,104 @@ class ResponseService {
       return 0;
     }
   }
+
+  /**
+   * Get the next player number for anonymous mode
+   * Returns the count of participants ordered by join time + 1
+   */
+  async getNextPlayerNumber(sessionId: string): Promise<number> {
+    try {
+      const { data, error } = await supabase
+        .from('participants')
+        .select('id')
+        .eq('session_id', sessionId);
+
+      if (error) {
+        console.error('Error getting next player number:', error);
+        return 1;
+      }
+
+      return (data?.length || 0) + 1;
+    } catch (error) {
+      console.error('Error in getNextPlayerNumber:', error);
+      return 1;
+    }
+  }
+
+  /**
+   * Join session as participant with anonymous auto-naming
+   * @param sessionId - The session to join
+   * @param anonymousId - Unique identifier for this anonymous user
+   * @param isAnonymousMode - If true, auto-generates "Player X" names based on join order
+   * @param nickname - Custom nickname (used when isAnonymousMode is false)
+   * @param avatar - Selected avatar emoji
+   */
+  async joinSessionWithMode(
+    sessionId: string,
+    anonymousId: string,
+    isAnonymousMode: boolean,
+    nickname?: string,
+    avatar?: string
+  ): Promise<Participant | null> {
+    try {
+      // Check if participant already exists
+      const { data: existing } = await supabase
+        .from('participants')
+        .select('*')
+        .eq('session_id', sessionId)
+        .eq('anonymous_id', anonymousId)
+        .single();
+
+      if (existing) {
+        // Update last seen
+        const { data, error } = await supabase
+          .from('participants')
+          .update({ last_seen_at: new Date().toISOString() } as any)
+          .eq('id', (existing as any).id)
+          .select()
+          .single();
+
+        return data as Participant;
+      }
+
+      // Determine nickname based on mode
+      let playerNickname: string;
+      
+      if (isAnonymousMode) {
+        // Get the next player number based on existing participants
+        const playerNumber = await this.getNextPlayerNumber(sessionId);
+        playerNickname = `Player ${playerNumber}`;
+      } else {
+        // Use provided nickname or generate random one
+        playerNickname = nickname || `Player ${Math.floor(Math.random() * 1000)}`;
+      }
+
+      // Create new participant
+      const { data, error } = await supabase
+        .from('participants')
+        .insert({
+          session_id: sessionId,
+          anonymous_id: anonymousId,
+          nickname: playerNickname,
+          avatar: avatar || null,
+          score: 0,
+          streak: 0,
+          is_blocked: false,
+        } as any)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error joining session:', error);
+        return null;
+      }
+
+      return data as Participant;
+    } catch (error) {
+      console.error('Error in joinSessionWithMode:', error);
+      return null;
+    }
+  }
 }
 
 export const responseService = new ResponseService();

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { 
   Clock, 
@@ -25,12 +26,15 @@ import {
   Star,
   Flame,
   Copy,
-  Check
+  Check,
+  Sparkles,
+  User
 } from "lucide-react";
 import { useParticipantCount, useLeaderboard, useQuestionResponses } from "@/hooks/useResponses";
 import { useLiveQuiz } from "@/hooks/useLiveQuiz";
 import { submitResponse, calculateScore, responseService } from "@/services/responseService";
 import { ChaosEffects, useChaosMode } from "@/components/session/ChaosMode";
+import { motion } from "framer-motion";
 
 interface Question {
   id: string;
@@ -86,6 +90,15 @@ const LiveSession = () => {
   const [nickname, setNickname] = useState<string>("");
   const [codeCopied, setCodeCopied] = useState(false);
   const [showParticipantLeaderboard, setShowParticipantLeaderboard] = useState(false);
+  
+  // Join screen state for named identity mode
+  const [showJoinScreen, setShowJoinScreen] = useState(false);
+  const [joinNickname, setJoinNickname] = useState("");
+  const [selectedAvatar, setSelectedAvatar] = useState("😀");
+  const [isJoining, setIsJoining] = useState(false);
+
+  // Avatar options
+  const AVATARS = ["😀", "😎", "🤓", "🦊", "🐱", "🐶", "🦁", "🐼", "🐨", "🐸", "🐵", "🦄"];
 
   // Chaos Mode - read from session settings
   const chaosEnabled = (session?.settings as SessionSettings)?.chaos_mode ?? false;
@@ -189,26 +202,35 @@ const LiveSession = () => {
           const storedNickname = localStorage.getItem("nickname") || "";
           
           if (storedParticipantId) {
+            // Existing participant - restore state
             setParticipantId(storedParticipantId);
             setNickname(storedNickname);
           } else {
-            // Create new participant if not exists
-            const anonymousId = localStorage.getItem('crowdspark_anonymous_id') || 
-              `anon_${Math.random().toString(36).substring(2, 15)}${Date.now()}`;
-            localStorage.setItem('crowdspark_anonymous_id', anonymousId);
+            // New participant - check identity mode
+            const identityMode = sessionData.settings?.identity_mode || 'anonymous';
             
-            const participant = await responseService.joinSession(
-              sessionData.id, 
-              anonymousId,
-              storedNickname || `Player ${Math.floor(Math.random() * 1000)}`
-            );
-            
-            if (participant) {
-              setParticipantId(participant.id);
-              setNickname(participant.nickname || "");
-              sessionStorage.setItem(`participant_${sessionData.id}`, participant.id);
-              if (participant.nickname) {
-                localStorage.setItem("nickname", participant.nickname);
+            if (identityMode === 'named') {
+              // Show join screen for name entry
+              setShowJoinScreen(true);
+            } else {
+              // Anonymous mode - auto-join with "Player X" name
+              const anonymousId = localStorage.getItem('crowdspark_anonymous_id') || 
+                `anon_${Math.random().toString(36).substring(2, 15)}${Date.now()}`;
+              localStorage.setItem('crowdspark_anonymous_id', anonymousId);
+              
+              const participant = await responseService.joinSessionWithMode(
+                sessionData.id, 
+                anonymousId,
+                true // isAnonymousMode = true
+              );
+              
+              if (participant) {
+                setParticipantId(participant.id);
+                setNickname(participant.nickname || "");
+                sessionStorage.setItem(`participant_${sessionData.id}`, participant.id);
+                if (participant.nickname) {
+                  localStorage.setItem("nickname", participant.nickname);
+                }
               }
             }
           }
@@ -346,6 +368,45 @@ const LiveSession = () => {
     }
   };
 
+  // Handle join with name (for named identity mode)
+  const handleJoinWithName = async () => {
+    if (!joinNickname.trim() || !resolvedSessionId) return;
+
+    try {
+      setIsJoining(true);
+      
+      const anonymousId = localStorage.getItem('crowdspark_anonymous_id') || 
+        `anon_${Math.random().toString(36).substring(2, 15)}${Date.now()}`;
+      localStorage.setItem('crowdspark_anonymous_id', anonymousId);
+      
+      const participant = await responseService.joinSessionWithMode(
+        resolvedSessionId, 
+        anonymousId,
+        false, // isAnonymousMode = false
+        joinNickname.trim(),
+        selectedAvatar
+      );
+      
+      if (participant) {
+        setParticipantId(participant.id);
+        setNickname(participant.nickname || "");
+        sessionStorage.setItem(`participant_${resolvedSessionId}`, participant.id);
+        if (participant.nickname) {
+          localStorage.setItem("nickname", participant.nickname);
+        }
+        setShowJoinScreen(false);
+        toast.success("Joined successfully!");
+      } else {
+        toast.error("Failed to join session");
+      }
+    } catch (error) {
+      console.error("Error joining session:", error);
+      toast.error("Failed to join session");
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   // Host: End quiz and update session
   const handleEndQuiz = async () => {
     if (!isHost || !resolvedSessionId) return;
@@ -399,6 +460,88 @@ const LiveSession = () => {
         <Button onClick={() => navigate("/")} className="mt-4">
           Go Home
         </Button>
+      </div>
+    );
+  }
+
+  // Join Screen for named identity mode
+  if (showJoinScreen && !isHost) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-primary/5">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md"
+        >
+          <Card className="overflow-hidden">
+            <div className="h-2 bg-gradient-to-r from-primary via-spark-teal to-spark-coral" />
+            <CardHeader className="text-center">
+              <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                <Sparkles className="w-8 h-8 text-primary" />
+              </div>
+              <CardTitle className="text-2xl">Join Session</CardTitle>
+              <p className="text-muted-foreground">
+                Code: <span className="font-mono font-bold text-primary">{session.code}</span>
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">{session.title}</p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Your Name</label>
+                <Input
+                  placeholder="Enter your name..."
+                  value={joinNickname}
+                  onChange={(e) => setJoinNickname(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleJoinWithName()}
+                  maxLength={20}
+                  className="text-lg h-12"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Choose Avatar</label>
+                <div className="grid grid-cols-6 gap-2">
+                  {AVATARS.map((avatar) => (
+                    <motion.button
+                      key={avatar}
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setSelectedAvatar(avatar)}
+                      className={`w-12 h-12 text-2xl rounded-xl border-2 transition-all ${
+                        selectedAvatar === avatar
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      {avatar}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-spark-coral flex items-center justify-center text-3xl">
+                  {selectedAvatar}
+                </div>
+                <div>
+                  <p className="font-medium">{joinNickname || "Your Name"}</p>
+                  <p className="text-sm text-muted-foreground">Ready to play!</p>
+                </div>
+              </div>
+
+              <Button
+                variant="default"
+                className="w-full bg-gradient-to-r from-primary to-spark-coral hover:opacity-90"
+                size="lg"
+                onClick={handleJoinWithName}
+                disabled={!joinNickname.trim() || isJoining}
+              >
+                <User className="w-5 h-5 mr-2" />
+                {isJoining ? "Joining..." : "Join Game"}
+              </Button>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
     );
   }
