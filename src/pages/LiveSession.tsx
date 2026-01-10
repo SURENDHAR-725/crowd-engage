@@ -306,6 +306,25 @@ const LiveSession = () => {
     }
   }, [quizState.isRevealing, isHost, refetchLeaderboard]);
 
+  // Host: Poll for responses during active question to update percentages in real-time
+  // Using a longer interval to avoid ERR_INSUFFICIENT_RESOURCES
+  useEffect(() => {
+    if (!isHost || !currentQuestion?.id) return;
+    if (quizState.status !== 'active' || quizState.isRevealing) return;
+
+    // Initial fetch
+    refetchResponses();
+    refreshCount();
+
+    // Poll every 5 seconds during active question (reduced frequency to avoid resource errors)
+    const pollInterval = setInterval(() => {
+      refetchResponses();
+      refreshCount();
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [isHost, currentQuestion?.id, quizState.status, quizState.isRevealing]);
+
   // Host: Start the quiz
   const handleStartQuiz = async () => {
     if (!isHost || !resolvedSessionId) return;
@@ -357,9 +376,10 @@ const LiveSession = () => {
         onCorrectAnswer();
       }
       
-      // Refresh leaderboard after submitting answer
+      // Refresh leaderboard after submitting answer and auto-show it
       refetchLeaderboard();
       refetchResponses();
+      setShowParticipantLeaderboard(true);
     } catch (error) {
       console.error("Error submitting answer:", error);
       toast.error("Failed to submit answer");
@@ -672,7 +692,7 @@ const LiveSession = () => {
                 <p className="text-center text-muted-foreground">No participants yet</p>
               ) : (
                 <div className="space-y-2">
-                  {leaderboard.map((entry, index) => (
+                  {leaderboard.slice(0, 5).map((entry, index) => (
                     <div 
                       key={entry.id}
                       className={`flex items-center justify-between p-4 rounded-lg ${
@@ -840,20 +860,23 @@ const LiveSession = () => {
                       <div
                         key={option.id}
                         className={`p-4 rounded-lg border-2 transition-all ${
-                          quizState.isRevealing
-                            ? option.is_correct
-                              ? "border-green-500 bg-green-50 dark:bg-green-900/30"
-                              : "border-red-300 bg-red-50 dark:bg-red-900/20"
-                            : "border-muted"
+                          option.is_correct
+                            ? "border-green-500 bg-green-50 dark:bg-green-900/30"
+                            : quizState.isRevealing
+                              ? "border-red-300 bg-red-50 dark:bg-red-900/20"
+                              : "border-muted"
                         }`}
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <span className="font-medium">{option.option_text}</span>
-                          {quizState.isRevealing && (
-                            option.is_correct 
-                              ? <CheckCircle2 className="h-5 w-5 text-green-500" />
-                              : <XCircle className="h-5 w-5 text-red-400" />
-                          )}
+                          <span className={`font-medium ${option.is_correct ? "text-green-700 dark:text-green-300" : ""}`}>
+                            {option.option_text}
+                            {option.is_correct && <span className="ml-2 text-xs text-green-600 dark:text-green-400">(Correct)</span>}
+                          </span>
+                          {option.is_correct ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                          ) : quizState.isRevealing ? (
+                            <XCircle className="h-5 w-5 text-red-400" />
+                          ) : null}
                         </div>
                         <div className="flex items-center gap-2">
                           <Progress value={optionPercentage} className="h-2 flex-1" />
