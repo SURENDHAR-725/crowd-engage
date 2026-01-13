@@ -14,7 +14,8 @@ export type SessionType =
   | 'yesno' 
   | 'rating' 
   | 'minigame' 
-  | 'battle';
+  | 'battle'
+  | 'mocktest';
 
 export type SessionStatus = 'draft' | 'active' | 'paused' | 'ended';
 export type QuestionType = 'mcq' | 'wordcloud' | 'quiz' | 'rating' | 'yesno' | 'open-ended';

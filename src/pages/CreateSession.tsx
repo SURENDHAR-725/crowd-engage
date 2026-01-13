@@ -109,6 +109,14 @@ const pollTypeConfig: Record<SessionType, { icon: any; title: string; descriptio
     bg: "bg-red-500/10",
     features: ["Team competition", "Live scores", "Victory celebrations"],
   },
+  mocktest: {
+    icon: BookOpen,
+    title: "Mock Test",
+    description: "Individual practice test with AI-generated questions on any topic",
+    color: "text-emerald-500",
+    bg: "bg-emerald-500/10",
+    features: ["AI questions", "Fixed timer", "Pause & resume", "Self-paced"],
+  },
 };
 
 type PaceMode = 'instructor' | 'self-paced';
@@ -677,6 +685,51 @@ const CreateSession = () => {
           </section>
         )}
 
+        {/* Mock Test Section - Redirect to dedicated page */}
+        {pollType === 'mocktest' && (
+          <section>
+            <Card className="border-2 border-emerald-500/50 bg-emerald-500/5">
+              <CardContent className="p-8 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+                  <BookOpen className="w-8 h-8 text-emerald-500" />
+                </div>
+                <h3 className="text-2xl font-display font-bold mb-2">Individual Mock Test</h3>
+                <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+                  Take a self-paced practice test with AI-generated questions. 
+                  No admin panel needed - just enter a topic and start practicing!
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 max-w-lg mx-auto">
+                  <div className="p-3 rounded-lg bg-background border border-border">
+                    <Sparkles className="w-5 h-5 text-primary mx-auto mb-1" />
+                    <p className="text-xs text-muted-foreground">AI Questions</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-background border border-border">
+                    <Timer className="w-5 h-5 text-amber-500 mx-auto mb-1" />
+                    <p className="text-xs text-muted-foreground">Fixed Timer</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-background border border-border">
+                    <Gauge className="w-5 h-5 text-spark-coral mx-auto mb-1" />
+                    <p className="text-xs text-muted-foreground">Self Paced</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-background border border-border">
+                    <Hand className="w-5 h-5 text-spark-teal mx-auto mb-1" />
+                    <p className="text-xs text-muted-foreground">Pause & Resume</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="gradient" 
+                  size="lg" 
+                  className="px-8"
+                  onClick={() => navigate('/mocktest')}
+                >
+                  <Play className="w-5 h-5 mr-2" />
+                  Start Mock Test
+                </Button>
+              </CardContent>
+            </Card>
+          </section>
+        )}
+
         {/* Manual Multi-Question Mode for Polls */}
         {isManualMultiMode && pollQuestions.length > 0 && (
           <Card className="border-spark-teal bg-spark-teal/5">
@@ -740,7 +793,9 @@ const CreateSession = () => {
           </Card>
         )}
 
-        {/* Session Details */}
+        {/* Session Details - Hide for mocktest as it has its own page */}
+        {pollType !== 'mocktest' && (
+        <>
         <Card variant="elevated">
           <CardHeader>
             <div className={`w-12 h-12 rounded-xl ${config.bg} flex items-center justify-center mb-2`}>
@@ -1144,6 +1199,8 @@ const CreateSession = () => {
             </div>
           </CardContent>
         </Card>
+        </>
+        )}
       </main>
     </div>
   );
