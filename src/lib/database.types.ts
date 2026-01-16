@@ -9,16 +9,14 @@ export type Json =
 // Extended session types for all features
 export type SessionType = 
   | 'mcq' 
-  | 'wordcloud' 
   | 'quiz' 
   | 'yesno' 
   | 'rating' 
   | 'minigame' 
-  | 'battle'
   | 'mocktest';
 
 export type SessionStatus = 'draft' | 'active' | 'paused' | 'ended';
-export type QuestionType = 'mcq' | 'wordcloud' | 'quiz' | 'rating' | 'yesno' | 'open-ended';
+export type QuestionType = 'mcq' | 'quiz' | 'rating' | 'yesno' | 'open-ended';
 export type SubscriptionTier = 'free' | 'pro' | 'enterprise';
 
 // Mini game types
@@ -27,15 +25,6 @@ export type MiniGameType =
   | 'memory-match' 
   | 'word-scramble' 
   | 'emoji-decode';
-
-// Battle room team structure
-export interface BattleTeam {
-  id: string;
-  name: string;
-  color: string;
-  score: number;
-  memberIds: string[];
-}
 
 // Session modes configuration
 export interface SessionModes {

@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { 
   Plus, 
   BarChart3, 
-  Cloud, 
   Timer, 
   Zap,
   Users,
@@ -30,14 +29,6 @@ const pollTypes = [
     description: "Classic poll with multiple options",
     color: "text-primary",
     bg: "bg-primary/10",
-  },
-  { 
-    id: "wordcloud", 
-    icon: Cloud, 
-    title: "Word Cloud", 
-    description: "Collect words and visualize trends",
-    color: "text-spark-teal",
-    bg: "bg-spark-teal/10",
   },
   { 
     id: "quiz", 
@@ -72,8 +63,6 @@ const Dashboard = () => {
     switch (type) {
       case "poll":
         return BarChart3;
-      case "wordcloud":
-        return Cloud;
       case "quiz":
         return Timer;
       default:

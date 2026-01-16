@@ -30,6 +30,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { generateQuizFromTopic, isAIConfigured, type GeneratedQuestion, type Difficulty } from "@/services/aiQuizService";
+import { useSessions } from "@/hooks/useSessions";
+import { useAuth } from "@/context/AuthContext";
 
 type MockTestState = 'setup' | 'loading' | 'testing' | 'paused' | 'review' | 'results';
 
@@ -56,6 +58,9 @@ const suggestedTopics = [
 ];
 
 const MockTest = () => {
+  const { createSession } = useSessions();
+  const { user } = useAuth();
+  
   // Setup state
   const [topic, setTopic] = useState("");
   const [questionCount, setQuestionCount] = useState(10);
@@ -76,6 +81,7 @@ const MockTest = () => {
   // Loading state
   const [loadingMessage, setLoadingMessage] = useState("Generating questions...");
   const [error, setError] = useState<string | null>(null);
+  const [sessionSaved, setSessionSaved] = useState(false);
 
   const aiConfigured = isAIConfigured();
   const currentQuestion = questions[currentQuestionIndex];
@@ -102,7 +108,7 @@ const MockTest = () => {
     return () => clearInterval(timer);
   }, [state, timeRemaining, currentQuestionIndex]);
 
-  const handleTimeUp = useCallback(() => {
+  const handleTimeUp = useCallback(async () => {
     const timeTaken = timePerQuestion - timeRemaining;
     const isCorrect = selectedOption !== null && 
       currentQuestion?.options[selectedOption]?.is_correct === true;
@@ -114,14 +120,19 @@ const MockTest = () => {
       timeTaken,
     };
     
-    setAnswers(prev => [...prev, answer]);
+    const updatedAnswers = [...answers, answer];
+    setAnswers(updatedAnswers);
     
     if (currentQuestionIndex < totalQuestions - 1) {
       moveToNextQuestion();
     } else {
       setState('results');
+      // Save session when test is completed
+      if (user && !sessionSaved) {
+        await saveTestSession(updatedAnswers);
+      }
     }
-  }, [selectedOption, currentQuestionIndex, totalQuestions, timePerQuestion, timeRemaining, currentQuestion]);
+  }, [selectedOption, currentQuestionIndex, totalQuestions, timePerQuestion, timeRemaining, currentQuestion, answers, user, sessionSaved]);
 
   const moveToNextQuestion = () => {
     setCurrentQuestionIndex(prev => prev + 1);
@@ -173,7 +184,7 @@ const MockTest = () => {
     }
   };
 
-  const handleSubmitAnswer = () => {
+  const handleSubmitAnswer = async () => {
     const timeTaken = timePerQuestion - timeRemaining;
     const isCorrect = selectedOption !== null && 
       currentQuestion?.options[selectedOption]?.is_correct === true;
@@ -185,12 +196,17 @@ const MockTest = () => {
       timeTaken,
     };
     
-    setAnswers(prev => [...prev, answer]);
+    const updatedAnswers = [...answers, answer];
+    setAnswers(updatedAnswers);
     
     if (currentQuestionIndex < totalQuestions - 1) {
       moveToNextQuestion();
     } else {
       setState('results');
+      // Save session when test is completed
+      if (user && !sessionSaved) {
+        await saveTestSession(updatedAnswers);
+      }
     }
   };
 
@@ -208,6 +224,7 @@ const MockTest = () => {
     setCurrentQuestionIndex(0);
     setSelectedOption(null);
     setTimeRemaining(0);
+    setSessionSaved(false);
     setState('setup');
   };
 
@@ -217,7 +234,47 @@ const MockTest = () => {
     setSelectedOption(null);
     setTimeRemaining(timePerQuestion);
     setQuestionStartTime(Date.now());
+    setSessionSaved(false);
     setState('testing');
+  };
+
+  const saveTestSession = async (finalAnswers: UserAnswer[]) => {
+    try {
+      const correctCount = finalAnswers.filter(a => a.isCorrect).length;
+      const totalAnswered = finalAnswers.length;
+      const score = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : 0;
+      
+      // Convert questions to session format
+      const sessionQuestions = questions.map((q, index) => ({
+        text: q.question_text,
+        type: 'mcq' as const,
+        timeLimit: timePerQuestion,
+        points: 100,
+        options: q.options.map(opt => ({
+          text: opt.option_text,
+          isCorrect: opt.is_correct
+        }))
+      }));
+
+      await createSession({
+        title: `Mock Test: ${topic}`,
+        type: 'mocktest',
+        status: 'ended',
+        questions: sessionQuestions,
+        modes: {
+          paceMode: 'self-paced',
+          identityMode: 'anonymous',
+          allowMultipleResponses: false,
+          showLiveResults: false,
+          shuffleOptions: false
+        }
+      });
+      
+      setSessionSaved(true);
+    } catch (error) {
+      console.error('Failed to save mock test session:', error);
+      // Don't show error to user as it doesn't affect their test results
+    }
   };
 
   const calculateResults = () => {

@@ -3,11 +3,9 @@ import {
   BarChart3, 
   MessageSquare, 
   Timer, 
-  Cloud, 
   Gamepad2, 
   Users, 
   Mic, 
-  Trophy,
   Brain,
   Sparkles
 } from "lucide-react";
@@ -20,13 +18,6 @@ const features = [
     description: "Create MCQ, Yes/No, or rating polls with instant real-time results visualization.",
     color: "text-primary",
     bg: "bg-primary/10",
-  },
-  {
-    icon: Cloud,
-    title: "Word Clouds",
-    description: "Generate beautiful word clouds from audience responses that update in real-time.",
-    color: "text-spark-teal",
-    bg: "bg-spark-teal/10",
   },
   {
     icon: Timer,
@@ -48,13 +39,6 @@ const features = [
     description: "Keep audiences engaged with fun interactive games between sessions.",
     color: "text-spark-pink",
     bg: "bg-spark-pink/10",
-  },
-  {
-    icon: Trophy,
-    title: "Battle Rooms",
-    description: "Create team-based competitions with real-time scoring and leaderboards.",
-    color: "text-spark-yellow",
-    bg: "bg-spark-yellow/10",
   },
   {
     icon: Mic,

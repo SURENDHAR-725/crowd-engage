@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { 
   BarChart3, 
-  Cloud, 
   Timer, 
   ArrowLeft,
   Plus,
@@ -26,7 +25,6 @@ import {
   ThumbsUp,
   Star,
   Gamepad2,
-  Swords,
   Mic,
   Sparkles,
   FileText,
@@ -77,14 +75,6 @@ const pollTypeConfig: Record<SessionType, { icon: any; title: string; descriptio
     bg: "bg-amber-500/10",
     features: ["Star ratings", "Average calculation", "Distribution view"],
   },
-  wordcloud: {
-    icon: Cloud,
-    title: "Word Cloud",
-    description: "Collect single words or short phrases and visualize them beautifully",
-    color: "text-spark-teal",
-    bg: "bg-spark-teal/10",
-    features: ["Real-time aggregation", "Visual word map", "Multiple responses"],
-  },
   quiz: {
     icon: Timer,
     title: "Timed Quiz",
@@ -100,14 +90,6 @@ const pollTypeConfig: Record<SessionType, { icon: any; title: string; descriptio
     color: "text-purple-500",
     bg: "bg-purple-500/10",
     features: ["Multiple game types", "Live scoring", "Competitive fun"],
-  },
-  battle: {
-    icon: Swords,
-    title: "Battle Room",
-    description: "Team-based competitions where groups compete against each other",
-    color: "text-red-500",
-    bg: "bg-red-500/10",
-    features: ["Team competition", "Live scores", "Victory celebrations"],
   },
   mocktest: {
     icon: BookOpen,
@@ -212,7 +194,7 @@ const CreateSession = () => {
       question: question,
       options: [...options],
       correctAnswer: pollType === "quiz" ? correctAnswer : undefined,
-      timeLimit: ["quiz", "minigame", "battle"].includes(pollType) ? timeLimit : undefined,
+      timeLimit: ["quiz", "minigame"].includes(pollType) ? timeLimit : undefined,
     };
 
     setPollQuestions([...pollQuestions, newQuestion]);
@@ -277,7 +259,7 @@ const CreateSession = () => {
   };
 
   // Types that need custom options
-  const needsOptions = !["wordcloud", "yesno", "rating"].includes(pollType);
+  const needsOptions = !["yesno", "rating"].includes(pollType);
 
   const handleSave = async (launch: boolean = false) => {
     if (!title.trim()) {
@@ -335,8 +317,7 @@ const CreateSession = () => {
           }
 
           const questionType = pollType === 'yesno' ? 'true-false' as const : 
-                               pollType === 'rating' ? 'poll' as const : 
-                               pollType === 'wordcloud' ? 'open-ended' as const : 'mcq' as const;
+                               pollType === 'rating' ? 'poll' as const : 'mcq' as const;
 
           return {
             text: q.question,
@@ -426,8 +407,7 @@ const CreateSession = () => {
       }
 
       const questionType = pollType === 'yesno' ? 'true-false' as const : 
-                           pollType === 'rating' ? 'poll' as const : 
-                           pollType === 'wordcloud' ? 'open-ended' as const : 'mcq' as const;
+                           pollType === 'rating' ? 'poll' as const : 'mcq' as const;
 
       const sessionData = {
         title,
@@ -436,7 +416,7 @@ const CreateSession = () => {
         questions: [{
           text: question,
           type: questionType,
-          timeLimit: (pollType === 'quiz' || pollType === 'minigame' || pollType === 'battle') ? timeLimit : undefined,
+          timeLimit: (pollType === 'quiz' || pollType === 'minigame') ? timeLimit : undefined,
           points: 100,
           options: sessionOptions,
         }],
@@ -819,19 +799,15 @@ const CreateSession = () => {
             {/* Question */}
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                {pollType === "wordcloud" ? "Prompt" : pollType === "rating" ? "What to rate" : "Question"}
+                {pollType === "rating" ? "What to rate" : "Question"}
               </label>
               <Input
                 variant="large"
                 placeholder={
-                  pollType === "wordcloud"
-                    ? "e.g., What word describes our team culture?"
-                    : pollType === "yesno"
+                  pollType === "yesno"
                     ? "e.g., Should we extend the meeting by 15 minutes?"
                     : pollType === "rating"
                     ? "e.g., How would you rate today's presentation?"
-                    : pollType === "battle"
-                    ? "e.g., Which team will answer the most questions correctly?"
                     : pollType === "minigame"
                     ? "e.g., Test your knowledge with this fun challenge!"
                     : "e.g., What's your preferred meeting time?"
@@ -874,8 +850,8 @@ const CreateSession = () => {
               </div>
             )}
 
-            {/* Options (for MCQ, Quiz, Battle, MiniGame) */}
-            {!["wordcloud", "yesno", "rating"].includes(pollType) && (
+            {/* Options (for MCQ, Quiz, MiniGame) */}
+            {!["yesno", "rating"].includes(pollType) && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-sm font-medium">Options</label>
@@ -928,8 +904,8 @@ const CreateSession = () => {
               </div>
             )}
 
-            {/* Time Limit (for Quiz, MiniGame, Battle) */}
-            {["quiz", "minigame", "battle"].includes(pollType) && (
+            {/* Time Limit (for Quiz, MiniGame) */}
+            {["quiz", "minigame"].includes(pollType) && (
               <div className="space-y-2">
                 <label className="text-sm font-medium">Time Limit (seconds)</label>
                 <div className="flex items-center gap-4 flex-wrap">
@@ -948,7 +924,7 @@ const CreateSession = () => {
             )}
 
             {/* Add Question Button for multi-question mode */}
-            {!isMultiQuestionMode && ["mcq", "poll", "yesno", "rating", "wordcloud"].includes(pollType) && (
+            {!isMultiQuestionMode && ["mcq", "poll", "yesno", "rating"].includes(pollType) && (
               <div className="pt-4 border-t border-border">
                 <Button
                   variant="outline"
@@ -1113,8 +1089,7 @@ const CreateSession = () => {
               </div>
 
               {/* Shuffle Options (for MCQ/Quiz only) */}
-              {pollType !== "wordcloud" && (
-                <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:border-primary/30 transition-colors">
+              <div className="flex items-center justify-between p-4 rounded-xl border border-border hover:border-primary/30 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
                       <Shuffle className="w-5 h-5 text-orange-500" />
@@ -1128,8 +1103,7 @@ const CreateSession = () => {
                     checked={modes.shuffleOptions}
                     onCheckedChange={(checked) => updateMode('shuffleOptions', checked)}
                   />
-                </div>
-              )}
+              </div>
 
               {/* Chaos Mode */}
               <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${
@@ -1177,8 +1151,7 @@ const CreateSession = () => {
               <h3 className="text-xl font-display font-bold mb-4">
                 {question || "Your question will appear here"}
               </h3>
-              {pollType !== "wordcloud" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-3xl mx-auto">
                   {options.filter(o => o.text).map((option, index) => (
                     <Button
                       key={option.id}
@@ -1190,12 +1163,6 @@ const CreateSession = () => {
                     </Button>
                   ))}
                 </div>
-              )}
-              {pollType === "wordcloud" && (
-                <div className="h-32 flex items-center justify-center text-muted-foreground">
-                  <Cloud className="w-12 h-12" />
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
