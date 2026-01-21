@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Timer, Zap } from "lucide-react";
+import { CheckCircle, Timer, Zap, Flame, Sparkles, X } from "lucide-react";
+import confetti from 'canvas-confetti';
 
 interface PlayerAnswerProps {
   question: {
@@ -13,12 +14,31 @@ interface PlayerAnswerProps {
   onAnswer: (optionId: string, responseTime: number) => void;
   hasAnswered: boolean;
   pointsEarned?: number;
+  streak?: number;
+  isCorrect?: boolean;
 }
 
-export const PlayerAnswer = ({ question, onAnswer, hasAnswered, pointsEarned }: PlayerAnswerProps) => {
+const optionColors = [
+  { bg: "bg-primary", hover: "hover:bg-primary/90" },
+  { bg: "bg-spark-coral", hover: "hover:bg-spark-coral/90" },
+  { bg: "bg-spark-teal", hover: "hover:bg-spark-teal/90" },
+  { bg: "bg-spark-green", hover: "hover:bg-spark-green/90" },
+  { bg: "bg-purple-500", hover: "hover:bg-purple-500/90" },
+  { bg: "bg-amber-500", hover: "hover:bg-amber-500/90" },
+];
+
+export const PlayerAnswer = ({ 
+  question, 
+  onAnswer, 
+  hasAnswered, 
+  pointsEarned, 
+  streak = 0,
+  isCorrect 
+}: PlayerAnswerProps) => {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(question.timeLimit);
   const [startTime] = useState(Date.now());
+  const [showFeedback, setShowFeedback] = useState(false);
 
   useEffect(() => {
     if (timeRemaining <= 0 || hasAnswered) return;
@@ -28,6 +48,20 @@ export const PlayerAnswer = ({ question, onAnswer, hasAnswered, pointsEarned }: 
     return () => clearInterval(interval);
   }, [timeRemaining, hasAnswered]);
 
+  useEffect(() => {
+    if (hasAnswered) {
+      setShowFeedback(true);
+      if (isCorrect && pointsEarned && pointsEarned > 0) {
+        // Trigger confetti for correct answers
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }
+    }
+  }, [hasAnswered, isCorrect, pointsEarned]);
+
   const handleSelect = (optionId: string) => {
     if (hasAnswered || selectedOption) return;
     setSelectedOption(optionId);
@@ -35,36 +69,89 @@ export const PlayerAnswer = ({ question, onAnswer, hasAnswered, pointsEarned }: 
     onAnswer(optionId, responseTime);
   };
 
-  const colors = ["bg-primary", "bg-spark-coral", "bg-spark-teal", "bg-spark-green"];
+  const progressPercent = (timeRemaining / question.timeLimit) * 100;
+  const isUrgent = timeRemaining <= 5;
 
-  if (hasAnswered) {
+  if (showFeedback) {
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         className="min-h-[60vh] flex items-center justify-center p-4"
       >
-        <Card variant="glass" className="text-center p-8 max-w-md">
+        <Card variant="glass" className="text-center p-8 max-w-md w-full overflow-hidden">
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", delay: 0.2 }}
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 200, delay: 0.2 }}
+            className={`w-24 h-24 mx-auto rounded-3xl flex items-center justify-center mb-6 ${
+              isCorrect ? 'bg-gradient-to-br from-spark-green/20 to-emerald-500/20' : 'bg-gradient-to-br from-spark-coral/20 to-red-500/20'
+            }`}
           >
-            <CheckCircle className="w-20 h-20 mx-auto text-spark-green mb-4" />
+            {isCorrect ? (
+              <CheckCircle className="w-14 h-14 text-spark-green" />
+            ) : (
+              <X className="w-14 h-14 text-spark-coral" />
+            )}
           </motion.div>
-          <h2 className="text-2xl font-bold mb-2">Answer Submitted!</h2>
+
+          <motion.h2 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-2xl font-bold mb-4"
+          >
+            {isCorrect ? '🎉 Correct!' : 'Not Quite!'}
+          </motion.h2>
+
           {pointsEarned !== undefined && pointsEarned > 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", delay: 0.4 }}
+              className="flex items-center justify-center gap-2 text-primary text-3xl font-bold mb-4"
+            >
+              <Zap className="w-8 h-8" />
+              +{pointsEarned}
+              <span className="text-lg text-muted-foreground">points</span>
+            </motion.div>
+          )}
+
+          {/* Streak indicator */}
+          {streak >= 2 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="flex items-center justify-center gap-2 text-primary text-xl font-bold"
+              transition={{ delay: 0.5 }}
+              className="flex items-center justify-center gap-2 mb-4"
             >
-              <Zap className="w-6 h-6" />
-              +{pointsEarned} points
+              <div className="px-4 py-2 rounded-full bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 flex items-center gap-2">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.5, repeat: Infinity }}
+                >
+                  <Flame className="w-5 h-5 text-orange-500" />
+                </motion.div>
+                <span className="font-bold text-orange-500">{streak} streak!</span>
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 0.5, repeat: Infinity, delay: 0.25 }}
+                >
+                  <Flame className="w-5 h-5 text-orange-500" />
+                </motion.div>
+              </div>
             </motion.div>
           )}
-          <p className="text-muted-foreground mt-4">Waiting for next question...</p>
+
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="text-muted-foreground flex items-center justify-center gap-2"
+          >
+            <Sparkles className="w-4 h-4" />
+            Waiting for next question...
+          </motion.p>
         </Card>
       </motion.div>
     );
@@ -72,44 +159,106 @@ export const PlayerAnswer = ({ question, onAnswer, hasAnswered, pointsEarned }: 
 
   return (
     <div className="min-h-screen p-4 flex flex-col">
-      {/* Timer */}
-      <div className="flex items-center justify-center gap-2 mb-6">
-        <Timer className={`w-6 h-6 ${timeRemaining <= 5 ? "text-destructive" : "text-primary"}`} />
-        <span className={`text-3xl font-bold ${timeRemaining <= 5 ? "text-destructive animate-pulse" : ""}`}>
-          {timeRemaining}
-        </span>
-      </div>
+      {/* Timer Bar */}
+      <motion.div 
+        className="mb-6"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <motion.div
+              animate={isUrgent ? { scale: [1, 1.2, 1] } : {}}
+              transition={{ duration: 0.5, repeat: isUrgent ? Infinity : 0 }}
+            >
+              <Timer className={`w-6 h-6 ${isUrgent ? "text-destructive" : "text-primary"}`} />
+            </motion.div>
+            <span className={`text-3xl font-bold ${isUrgent ? "text-destructive" : ""}`}>
+              {timeRemaining}
+            </span>
+          </div>
+          {streak >= 2 && (
+            <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-orange-500/20 border border-orange-500/30">
+              <Flame className="w-4 h-4 text-orange-500" />
+              <span className="text-sm font-bold text-orange-500">{streak}</span>
+            </div>
+          )}
+        </div>
+        
+        {/* Progress bar */}
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
+          <motion.div
+            className={`h-full rounded-full ${isUrgent ? 'bg-destructive' : 'bg-primary'}`}
+            initial={{ width: '100%' }}
+            animate={{ width: `${progressPercent}%` }}
+            transition={{ duration: 0.3 }}
+          />
+        </div>
+      </motion.div>
 
       {/* Question */}
-      <Card className="mb-6">
-        <CardContent className="p-6">
-          <p className="text-xl font-medium text-center">{question.text}</p>
-        </CardContent>
-      </Card>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <Card className="mb-6 border-2 border-border">
+          <CardContent className="p-6">
+            <p className="text-xl md:text-2xl font-medium text-center leading-relaxed">
+              {question.text}
+            </p>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Options */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
         <AnimatePresence>
-          {question.options.map((option, index) => (
-            <motion.div
-              key={option.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Button
-                variant="outline"
-                className={`w-full h-full min-h-[100px] text-lg font-medium transition-all ${
-                  selectedOption === option.id ? "ring-4 ring-primary" : ""
-                } ${colors[index % colors.length]} text-white border-none hover:opacity-90`}
-                onClick={() => handleSelect(option.id)}
-                disabled={!!selectedOption}
+          {question.options.map((option, index) => {
+            const color = optionColors[index % optionColors.length];
+            return (
+              <motion.div
+                key={option.id}
+                initial={{ opacity: 0, y: 30, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ 
+                  delay: index * 0.1,
+                  type: "spring",
+                  stiffness: 200
+                }}
+                whileHover={!selectedOption ? { scale: 1.02 } : {}}
+                whileTap={!selectedOption ? { scale: 0.98 } : {}}
               >
-                <span className="mr-2 font-bold">{String.fromCharCode(65 + index)}.</span>
-                {option.text}
-              </Button>
-            </motion.div>
-          ))}
+                <Button
+                  variant="outline"
+                  className={`w-full h-full min-h-[100px] text-lg font-medium transition-all relative overflow-hidden ${
+                    selectedOption === option.id 
+                      ? "ring-4 ring-white shadow-lg" 
+                      : ""
+                  } ${color.bg} text-white border-none ${color.hover}`}
+                  onClick={() => handleSelect(option.id)}
+                  disabled={!!selectedOption}
+                >
+                  {/* Option letter badge */}
+                  <span className="absolute top-2 left-2 w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-sm font-bold">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                  
+                  <span className="px-8">{option.text}</span>
+
+                  {selectedOption === option.id && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute top-2 right-2"
+                    >
+                      <CheckCircle className="w-6 h-6 text-white" />
+                    </motion.div>
+                  )}
+                </Button>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </div>
     </div>
