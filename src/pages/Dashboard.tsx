@@ -575,6 +575,12 @@ const Dashboard = () => {
                   {displayedSessions.map((session, i) => {
                     const typeConfig = getTypeConfig(session.type);
                     const TypeIcon = typeConfig.icon;
+                    
+                    // Check if it's a buzzer game
+                    const isBuzzerGame = session.type === 'minigame' || 
+                      (session.settings && typeof session.settings === 'object' && 
+                       (session.settings as { is_buzzer_game?: boolean }).is_buzzer_game === true);
+                    
                     return (
                       <motion.div
                         key={session.id}
@@ -582,7 +588,13 @@ const Dashboard = () => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }}
                         whileHover={{ scale: 1.01, x: 4 }}
-                        onClick={() => navigate(`/session/${session.code}?host=true`)}
+                        onClick={() => {
+                          if (isBuzzerGame) {
+                            navigate(`/buzzer/${session.code}?host=true`);
+                          } else {
+                            navigate(`/session/${session.code}?host=true`);
+                          }
+                        }}
                         className="cursor-pointer"
                       >
                         <Card variant="default" className="card-hover border-border/50">
@@ -642,7 +654,16 @@ const Dashboard = () => {
                                   size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    navigate(`/session/${session.code}?host=true`);
+                                    // Check if it's a buzzer game
+                                    const isBuzzerGame = session.type === 'minigame' || 
+                                      (session.settings && typeof session.settings === 'object' && 
+                                       (session.settings as { is_buzzer_game?: boolean }).is_buzzer_game === true);
+                                    
+                                    if (isBuzzerGame) {
+                                      navigate(`/buzzer/${session.code}?host=true`);
+                                    } else {
+                                      navigate(`/session/${session.code}?host=true`);
+                                    }
                                   }}
                                 >
                                   <Trophy className="w-4 h-4 mr-1" />

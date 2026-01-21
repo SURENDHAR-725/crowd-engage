@@ -330,13 +330,14 @@ const BuzzerSession = () => {
     );
   }
 
-  // Host view - active game
-  if (isHost && session.status === 'active') {
+  // Host view - active game or ended (to show final results)
+  if (isHost && (session.status === 'active' || session.status === 'ended')) {
     return (
       <BuzzerHostPanel
         sessionCode={sessionCode}
         sessionId={session.id}
         topic={session.title}
+        initialStatus={session.status}
       />
     );
   }

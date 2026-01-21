@@ -27,7 +27,8 @@ import {
   User,
   RotateCcw,
   Volume2,
-  ArrowLeft
+  ArrowLeft,
+  Home
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -60,12 +61,13 @@ interface BuzzerHostPanelProps {
   sessionCode: string;
   sessionId: string;
   topic: string;
+  initialStatus?: string; // 'active' or 'ended'
 }
 
-export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPanelProps) => {
+export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }: BuzzerHostPanelProps) => {
   const [participants, setParticipants] = useState<BuzzerParticipant[]>([]);
   const [gameState, setGameState] = useState<BuzzerGameState>({
-    status: 'waiting',
+    status: initialStatus === 'ended' ? 'ended' : 'waiting',
     currentRound: 1,
     activeParticipantId: null,
     timerRunning: false,
@@ -457,30 +459,33 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
     // Get final leaderboard before ending
     const finalLeaderboard = [...participants].sort((a, b) => b.score - a.score);
     
-    setGameState(prev => ({
-      ...prev,
-      status: 'ended'
-    }));
-
-    // Update session status in database
+    // Update session status in database FIRST
     await supabase
       .from('sessions')
       .update({ status: 'ended', ended_at: new Date().toISOString() })
       .eq('id', sessionId);
 
-    // Broadcast session end with final leaderboard
-    if (gameStateChannelRef.current) {
-      gameStateChannelRef.current.send({
-        type: 'broadcast',
-        event: 'session-ended',
-        payload: { 
-          finalLeaderboard: finalLeaderboard.map((p, idx) => ({
-            ...p,
-            rank: idx + 1
-          }))
-        }
-      });
-    }
+    // Update local state
+    setGameState(prev => ({
+      ...prev,
+      status: 'ended'
+    }));
+
+    // Broadcast session end with final leaderboard (with slight delay to ensure all participants are listening)
+    setTimeout(() => {
+      if (gameStateChannelRef.current) {
+        gameStateChannelRef.current.send({
+          type: 'broadcast',
+          event: 'session-ended',
+          payload: { 
+            finalLeaderboard: finalLeaderboard.map((p, idx) => ({
+              ...p,
+              rank: idx + 1
+            }))
+          }
+        });
+      }
+    }, 100);
 
     toast.success("Session ended!");
   };
@@ -671,15 +676,19 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.4 }}
-            className="flex gap-4 justify-center pb-8"
+            className="flex flex-wrap gap-4 justify-center pb-8"
           >
+            <Button variant="outline" size="lg" onClick={() => window.location.href = '/'}>
+              <Home className="w-5 h-5 mr-2" />
+              Home
+            </Button>
             <Button variant="outline" size="lg" onClick={() => window.location.href = '/dashboard'}>
               <ArrowLeft className="w-5 h-5 mr-2" />
-              Back to Dashboard
+              Dashboard
             </Button>
             <Button variant="gradient" size="lg" onClick={() => window.location.href = '/create'}>
               <Plus className="w-5 h-5 mr-2" />
-              Create New Session
+              New Session
             </Button>
           </motion.div>
         </div>
@@ -1259,10 +1268,53 @@ export const BuzzerParticipantView = ({
       })
       .subscribe();
 
+    // Subscribe to session status changes (backup for session-ended event)
+    const sessionStatusChannel = supabase
+      .channel(`session-status-${sessionId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'sessions',
+        filter: `id=eq.${sessionId}`
+      }, async (payload) => {
+        console.log('Session status changed:', payload);
+        if (payload.new && (payload.new as any).status === 'ended') {
+          // Fetch final leaderboard
+          const { data } = await supabase
+            .from('participants')
+            .select('*')
+            .eq('session_id', sessionId)
+            .order('score', { ascending: false });
+          
+          if (data) {
+            const finalBoard = data.map((p, idx) => ({
+              id: p.id,
+              nickname: p.nickname || 'Anonymous',
+              avatar: p.avatar || '😀',
+              score: p.score || 0,
+              buzzerTime: null,
+              buzzerOrder: null,
+              isActive: true,
+              hasAnswered: false,
+              rank: idx + 1
+            }));
+            setFinalLeaderboard(finalBoard);
+          }
+          
+          setGameState(prev => ({
+            ...prev,
+            status: 'ended'
+          }));
+          toast.info("Game has ended!");
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(gameChannel);
       supabase.removeChannel(hostChannel);
       supabase.removeChannel(leaderboardChannel);
+      supabase.removeChannel(sessionStatusChannel);
     };
   }, [sessionId, participantId]);
 
@@ -1479,9 +1531,10 @@ export const BuzzerParticipantView = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1.5 }}
-            className="text-center pb-8"
+            className="flex justify-center gap-4 pb-8"
           >
             <Button variant="gradient" size="lg" onClick={() => window.location.href = '/'}>
+              <Home className="w-5 h-5 mr-2" />
               Back to Home
             </Button>
           </motion.div>
