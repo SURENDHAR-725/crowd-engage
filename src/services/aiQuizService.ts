@@ -1,8 +1,10 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { supabase, generateUniqueSessionCode } from '@/lib/supabase';
 
-// Configure PDF.js worker - use legacy worker for better compatibility
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js`;
+// Configure PDF.js worker - use local worker file in production, CDN in dev
+pdfjsLib.GlobalWorkerOptions.workerSrc = import.meta.env.DEV
+  ? `https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs`
+  : `/pdf-worker/pdf.worker.min.mjs`;
 
 // NVIDIA API configuration
 const NVIDIA_API_KEY = import.meta.env.VITE_NVIDIA_API_KEY || '';
@@ -281,12 +283,13 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   try {
     const arrayBuffer = await file.arrayBuffer();
     
-    // Load the PDF document with better error handling
+    // Load the PDF document with better error handling and fallback
     const loadingTask = pdfjsLib.getDocument({ 
       data: arrayBuffer,
       useWorkerFetch: false,
       isEvalSupported: false,
       useSystemFonts: true,
+      standardFontDataUrl: 'https://unpkg.com/pdfjs-dist@5.4.530/standard_fonts/',
     });
     
     const pdf = await loadingTask.promise;
