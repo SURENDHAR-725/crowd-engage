@@ -29,7 +29,11 @@ import {
   Sparkles,
   FileText,
   BookOpen,
-  Flame
+  Flame,
+  Bell,
+  Trophy,
+  Copy,
+  Check
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -84,12 +88,12 @@ const pollTypeConfig: Record<SessionType, { icon: any; title: string; descriptio
     features: ["Timer & scoring", "Leaderboard", "Streak bonuses"],
   },
   minigame: {
-    icon: Gamepad2,
-    title: "Mini Games",
-    description: "Fun interactive games like memory match, word scramble, and emoji decode",
+    icon: Bell,
+    title: "Buzzer Game",
+    description: "Interactive buzzer game - participants race to press the buzzer first, host controls scoring",
     color: "text-purple-500",
     bg: "bg-purple-500/10",
-    features: ["Multiple game types", "Live scoring", "Competitive fun"],
+    features: ["Live buzzer", "Host-controlled scoring", "Real-time leaderboard", "Priority queue"],
   },
   mocktest: {
     icon: BookOpen,
@@ -267,6 +271,39 @@ const CreateSession = () => {
       return;
     }
     
+    // For buzzer/minigame type, we don't need questions - just title
+    if (pollType === 'minigame') {
+      setIsLoading(true);
+      try {
+        const sessionData = {
+          title,
+          type: 'minigame' as const,
+          status: 'draft' as const, // Always create as draft first, then launch from waiting room
+          questions: [], // No questions for buzzer game
+          modes: {
+            ...modes,
+            paceMode: 'instructor' as const, // Always instructor-paced for buzzer
+          },
+        };
+
+        const session = await createSession(sessionData);
+        
+        if (session) {
+          toast.success("Buzzer game created!");
+          // Navigate to buzzer page where host can see join code and launch
+          navigate(`/buzzer/${session.code}?host=true`);
+        } else {
+          toast.error("Failed to create buzzer game. Please try again.");
+        }
+      } catch (error) {
+        console.error('Error saving session:', error);
+        toast.error("Failed to save session");
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+    
     // For manual multi-mode, we need at least one saved question
     if (isManualMultiMode && pollQuestions.length === 0) {
       toast.error("Please add at least one question using the 'Add Question' button");
@@ -416,7 +453,7 @@ const CreateSession = () => {
         questions: [{
           text: question,
           type: questionType,
-          timeLimit: (pollType === 'quiz' || pollType === 'minigame') ? timeLimit : undefined,
+          timeLimit: pollType === 'quiz' ? timeLimit : undefined,
           points: 100,
           options: sessionOptions,
         }],
@@ -710,6 +747,80 @@ const CreateSession = () => {
           </section>
         )}
 
+        {/* Buzzer Game Section */}
+        {pollType === 'minigame' && (
+          <section>
+            <Card className="border-2 border-purple-500/50 bg-purple-500/5">
+              <CardContent className="p-8">
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 rounded-2xl bg-purple-500/20 flex items-center justify-center mx-auto mb-4">
+                    <Bell className="w-8 h-8 text-purple-500" />
+                  </div>
+                  <h3 className="text-2xl font-display font-bold mb-2">Buzzer Game</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    Interactive buzzer-style game where participants race to press the buzzer first. 
+                    Questions are displayed on a large screen/TV - no questions shown in the app!
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 max-w-2xl mx-auto">
+                  <div className="p-4 rounded-xl bg-background border border-border text-center">
+                    <Bell className="w-6 h-6 text-purple-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium">Live Buzzer</p>
+                    <p className="text-xs text-muted-foreground">First to press wins</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-background border border-border text-center">
+                    <Trophy className="w-6 h-6 text-amber-500 mx-auto mb-2" />
+                    <p className="text-sm font-medium">Host Scoring</p>
+                    <p className="text-xs text-muted-foreground">Add/remove points</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-background border border-border text-center">
+                    <Timer className="w-6 h-6 text-spark-coral mx-auto mb-2" />
+                    <p className="text-sm font-medium">Answer Timer</p>
+                    <p className="text-xs text-muted-foreground">Host controls time</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-background border border-border text-center">
+                    <Users className="w-6 h-6 text-spark-teal mx-auto mb-2" />
+                    <p className="text-sm font-medium">Priority Queue</p>
+                    <p className="text-xs text-muted-foreground">First come first serve</p>
+                  </div>
+                </div>
+
+                <div className="max-w-md mx-auto space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Game Topic / Title</label>
+                    <Input
+                      variant="large"
+                      placeholder="e.g., Science Quiz, History Trivia, Team Challenge..."
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This will be displayed to participants when they join
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 max-w-2xl mx-auto">
+                  <h4 className="font-semibold text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    How it works:
+                  </h4>
+                  <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                    <li>Launch the game and share the join code with participants</li>
+                    <li>Display questions on a large TV/screen (questions are NOT in the app)</li>
+                    <li>Open the buzzer - participants race to press first</li>
+                    <li>Select who answers from the buzzer queue (first come first serve)</li>
+                    <li>Start the timer for the participant to answer verbally</li>
+                    <li>Award or deduct points based on their answer</li>
+                    <li>Move to the next question and repeat!</li>
+                  </ol>
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        )}
+
         {/* Manual Multi-Question Mode for Polls */}
         {isManualMultiMode && pollQuestions.length > 0 && (
           <Card className="border-spark-teal bg-spark-teal/5">
@@ -773,8 +884,8 @@ const CreateSession = () => {
           </Card>
         )}
 
-        {/* Session Details - Hide for mocktest as it has its own page */}
-        {pollType !== 'mocktest' && (
+        {/* Session Details - Hide for mocktest and minigame as they have their own pages */}
+        {pollType !== 'mocktest' && pollType !== 'minigame' && (
         <>
         <Card variant="elevated">
           <CardHeader>
@@ -808,8 +919,6 @@ const CreateSession = () => {
                     ? "e.g., Should we extend the meeting by 15 minutes?"
                     : pollType === "rating"
                     ? "e.g., How would you rate today's presentation?"
-                    : pollType === "minigame"
-                    ? "e.g., Test your knowledge with this fun challenge!"
                     : "e.g., What's your preferred meeting time?"
                 }
                 value={question}

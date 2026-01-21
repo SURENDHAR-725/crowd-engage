@@ -15,6 +15,7 @@ const JoinSession = lazy(() => import("./pages/JoinSession"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const CreateSession = lazy(() => import("./pages/CreateSession"));
 const LiveSession = lazy(() => import("./pages/LiveSession"));
+const BuzzerSession = lazy(() => import("./pages/BuzzerSession"));
 const MockTest = lazy(() => import("./pages/MockTest"));
 const SignIn = lazy(() => import("./pages/SignIn"));
 const SignUp = lazy(() => import("./pages/SignUp"));
@@ -51,6 +52,7 @@ const App = () => (
                   <Route path="/create" element={<CreateSession />} />
                   <Route path="/mocktest" element={<MockTest />} />
                   <Route path="/session/:code" element={<LiveSession />} />
+                  <Route path="/buzzer/:code" element={<BuzzerSession />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>

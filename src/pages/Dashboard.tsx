@@ -25,13 +25,24 @@ import {
   ThumbsUp,
   Star,
   Gamepad2,
-  RefreshCw
+  RefreshCw,
+  UserPlus,
+  Bell
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useSessions } from "@/hooks/useSessions";
 import { supabase } from "@/lib/supabase";
+import { sessionService } from "@/services/sessionService";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,6 +97,9 @@ const Dashboard = () => {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [userName, setUserName] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string>("");
+  const [joinCode, setJoinCode] = useState("");
+  const [isJoining, setIsJoining] = useState(false);
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { sessions, loading: sessionsLoading, updateSessionStatus, deleteSession } = useSessions();
 
@@ -149,6 +163,43 @@ const Dashboard = () => {
     e.stopPropagation();
     navigator.clipboard.writeText(code);
     toast.success(`Code ${code} copied to clipboard!`);
+  };
+
+  const handleJoinSession = async () => {
+    if (joinCode.length < 4) {
+      toast.error("Please enter a valid session code");
+      return;
+    }
+
+    setIsJoining(true);
+    
+    try {
+      const session = await sessionService.getSessionByCode(joinCode);
+      
+      if (session) {
+        toast.success("Joining session...");
+        setJoinDialogOpen(false);
+        
+        // Check if it's a buzzer game
+        const isBuzzerGame = session.type === 'minigame' || 
+          (session.settings && typeof session.settings === 'object' && 
+           (session.settings as { is_buzzer_game?: boolean }).is_buzzer_game === true);
+        
+        if (isBuzzerGame) {
+          navigate(`/buzzer/${joinCode.toUpperCase()}`);
+        } else {
+          navigate(`/session/${joinCode.toUpperCase()}`);
+        }
+      } else {
+        toast.error("Session not found or not active");
+      }
+    } catch (error) {
+      console.error('Error joining session:', error);
+      toast.error("Failed to join session");
+    } finally {
+      setIsJoining(false);
+      setJoinCode("");
+    }
   };
 
   const handleLaunchSession = async (sessionId: string, e: React.MouseEvent) => {
@@ -293,6 +344,57 @@ const Dashboard = () => {
                   className="w-64 pl-9"
                 />
               </div>
+              
+              {/* Join Session Dialog */}
+              <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Join Session
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Bell className="w-5 h-5 text-primary" />
+                      Join a Session
+                    </DialogTitle>
+                    <DialogDescription>
+                      Enter the session code provided by your host to participate
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-4">
+                    <Input
+                      variant="code"
+                      placeholder="ENTER CODE"
+                      value={joinCode}
+                      onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 8))}
+                      onKeyPress={(e) => e.key === 'Enter' && handleJoinSession()}
+                      maxLength={8}
+                    />
+                    <Button 
+                      variant="gradient" 
+                      className="w-full" 
+                      size="lg"
+                      onClick={handleJoinSession}
+                      disabled={isJoining || joinCode.length < 4}
+                    >
+                      {isJoining ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Joining...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-4 h-4 mr-2" />
+                          Join Session
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               <Button variant="gradient" onClick={() => navigate('/create')}>
                 <Plus className="w-4 h-4 mr-2" />
                 New Session

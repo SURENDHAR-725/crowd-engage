@@ -93,13 +93,20 @@ class SessionService {
       // Generate unique session code
       const code = await generateUniqueSessionCode();
 
-      // Validate that we have at least one question
-      if (!data.questions || data.questions.length === 0) {
+      // For buzzer/minigame sessions, questions are optional (displayed externally)
+      const isBuzzerGame = data.type === 'minigame';
+      
+      // Validate that we have at least one question (unless it's a buzzer game)
+      if (!isBuzzerGame && (!data.questions || data.questions.length === 0)) {
         console.error('No questions provided');
         return null;
       }
 
-      const firstQuestion = data.questions[0];
+      const firstQuestion = data.questions?.[0];
+
+      // Use 'quiz' as fallback type if 'minigame' enum doesn't exist in DB
+      // Store actual type in settings for proper handling
+      const sessionType = isBuzzerGame ? 'quiz' : data.type;
 
       // Create session
       const { data: session, error: sessionError } = await supabase
@@ -108,10 +115,10 @@ class SessionService {
           code,
           host_id: hostId,
           title: data.title,
-          type: data.type,
+          type: sessionType,
           status: data.status || 'draft',
           settings: {
-            ...(firstQuestion.timeLimit ? { time_limit: firstQuestion.timeLimit } : {}),
+            ...(firstQuestion?.timeLimit ? { time_limit: firstQuestion.timeLimit } : {}),
             ...(data.modes ? {
               pace_mode: data.modes.paceMode,
               identity_mode: data.modes.identityMode,
@@ -119,6 +126,8 @@ class SessionService {
               show_live_results: data.modes.showLiveResults,
               shuffle_options: data.modes.shuffleOptions,
             } : {}),
+            // Mark as buzzer game type for special handling
+            ...(isBuzzerGame ? { is_buzzer_game: true, actual_type: 'minigame' } : {}),
           },
         } as any)
         .select()
@@ -127,6 +136,12 @@ class SessionService {
       if (sessionError || !session) {
         console.error('Error creating session:', sessionError);
         return null;
+      }
+
+      // For buzzer games, skip question creation
+      if (isBuzzerGame) {
+        // Override the type in the returned object for proper frontend handling
+        return { ...session, type: 'minigame' } as SessionWithDetails;
       }
 
       // Create ALL questions from the array
@@ -236,12 +251,20 @@ class SessionService {
           )
         `)
         .eq('code', code.toUpperCase())
-        .eq('status', 'active')
-        .single();
+        .in('status', ['active', 'draft']) // Also allow draft for buzzer games where participants join before start
+        .maybeSingle();
 
       if (error) {
         console.error('Error fetching session by code:', error);
         return null;
+      }
+
+      if (!data) return null;
+
+      // Check if it's a buzzer game stored with 'quiz' type
+      const settings = data.settings as any;
+      if (settings?.is_buzzer_game || settings?.actual_type === 'minigame') {
+        return { ...data, type: 'minigame' } as SessionWithDetails;
       }
 
       return data as SessionWithDetails;

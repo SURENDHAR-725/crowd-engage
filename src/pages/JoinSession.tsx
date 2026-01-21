@@ -31,7 +31,16 @@ const JoinSession = () => {
       
       if (session) {
         toast.success("Joining session...");
-        navigate(`/session/${sessionCode.toUpperCase()}`);
+        // Check if it's a buzzer game (either minigame type or quiz with is_buzzer_game flag)
+        const isBuzzerGame = session.type === 'minigame' || 
+          (session.settings && typeof session.settings === 'object' && 
+           (session.settings as { is_buzzer_game?: boolean }).is_buzzer_game === true);
+        
+        if (isBuzzerGame) {
+          navigate(`/buzzer/${sessionCode.toUpperCase()}`);
+        } else {
+          navigate(`/session/${sessionCode.toUpperCase()}`);
+        }
       } else {
         toast.error("Session not found or not active");
       }
