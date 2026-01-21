@@ -1,8 +1,8 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { supabase, generateUniqueSessionCode } from '@/lib/supabase';
 
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs`;
+// Configure PDF.js worker - use legacy worker for better compatibility
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.js`;
 
 // NVIDIA API configuration
 const NVIDIA_API_KEY = import.meta.env.VITE_NVIDIA_API_KEY || '';
@@ -174,44 +174,68 @@ export async function generateQuizFromTopic(
   questionCount: number = 5,
   difficulty: Difficulty = 'medium'
 ): Promise<QuizGenerationResult> {
-  const systemPrompt = `You are an expert quiz creator. Generate engaging, educational multiple-choice quiz questions.
-Always respond with a valid JSON array of questions. Each question must have exactly 4 options with one correct answer.
+  const systemPrompt = `You are an elite educational content creator and assessment designer with expertise in cognitive learning theory and Bloom's Taxonomy. Your mission is to craft high-quality, pedagogically sound multiple-choice questions that genuinely test understanding, not just memorization.
 
-Format your response as a JSON array:
+CRITICAL RULES:
+1. Create questions that assess comprehension, application, and analysis—not just recall
+2. Wrong answers (distractors) must be plausible and address common misconceptions
+3. Avoid "all of the above" or "none of the above" options
+4. Use clear, unambiguous language without tricks or gotchas
+5. Each explanation must teach why the correct answer is right AND why others are wrong
+6. Vary question formats: definitions, applications, comparisons, cause-effect, problem-solving
+
+QUESTION QUALITY CHECKLIST:
+✓ Does it test actual understanding vs. memorization?
+✓ Are all distractors believable and based on real misconceptions?
+✓ Is the correct answer unambiguously correct?
+✓ Is the language clear and professional?
+✓ Does the explanation add educational value?
+
+Output Format (JSON array only, no markdown):
 [
   {
-    "question": "Question text here?",
+    "question": "Clear, specific question that tests understanding?",
     "options": [
-      {"text": "Option A", "is_correct": false},
-      {"text": "Option B", "is_correct": true},
-      {"text": "Option C", "is_correct": false},
-      {"text": "Option D", "is_correct": false}
+      {"text": "Plausible distractor based on common misconception", "is_correct": false},
+      {"text": "Correct answer with precise terminology", "is_correct": true},
+      {"text": "Plausible distractor with subtle error", "is_correct": false},
+      {"text": "Plausible distractor mixing truth with error", "is_correct": false}
     ],
-    "explanation": "Brief explanation of why the correct answer is correct."
+    "explanation": "Why B is correct: [reasoning]. Why A, C, D are wrong: [specific reasons addressing misconceptions]."
   }
 ]`;
 
   const difficultyInstructions = {
-    easy: 'Create beginner-friendly questions with clear, straightforward answers. Avoid trick questions.',
-    medium: 'Create moderately challenging questions that test understanding and application of concepts.',
-    hard: 'Create advanced questions that require deep knowledge and critical thinking. Include some nuanced options.',
-    mixed: 'Create a mix of easy, medium, and hard questions to test various levels of understanding.',
+    easy: 'EASY LEVEL: Focus on foundational knowledge and basic comprehension (Bloom\'s: Remember, Understand). Questions should be direct with clearly distinguishable options. Correct answer should be evident to someone who studied the material. Distractors should be obviously wrong to knowledgeable learners but plausible to beginners.',
+    medium: 'MEDIUM LEVEL: Test application and analysis (Bloom\'s: Apply, Analyze). Require connecting multiple concepts or applying knowledge to new scenarios. Include one highly plausible distractor that might fool someone with surface-level understanding. Test practical application and deeper comprehension.',
+    hard: 'HARD LEVEL: Demand synthesis and evaluation (Bloom\'s: Evaluate, Create). Present complex scenarios requiring critical thinking and deep expertise. Include 2-3 highly sophisticated distractors that differ subtly from the correct answer. Test edge cases, nuanced distinctions, and expert-level judgment.',
+    mixed: 'MIXED DIFFICULTY: Create a balanced distribution: 40% easy (foundational), 40% medium (application), 20% hard (expert-level). Ensure progression from basic to advanced concepts within the quiz.',
   };
 
-  const prompt = `Create ${questionCount} multiple-choice quiz questions about: "${topic}"
+  const prompt = `Generate ${questionCount} expert-level assessment questions on: "${topic}"
 
-Difficulty level: ${difficulty.toUpperCase()}
 ${difficultyInstructions[difficulty]}
 
-Requirements:
-- Each question must have exactly 4 options
-- Exactly one option must be correct
-- Options should be plausible and not obviously wrong
-- Include a brief explanation for each correct answer
-- Questions should cover different aspects of the topic
-- Make questions educational and engaging
+CONTENT REQUIREMENTS:
+• Cover diverse sub-topics and dimensions of "${topic}"
+• Each question must test a DIFFERENT aspect or concept
+• Progress logically from foundational to advanced concepts
+• Use real-world applications and scenarios where appropriate
+• Incorporate current best practices and up-to-date information
 
-Return ONLY a valid JSON array, no other text.`;
+DISTRACTOR DESIGN (Critical):
+• Base distractors on actual misconceptions learners have
+• Make distractors grammatically parallel to the correct answer
+• Ensure distractors are similar in length and detail to the correct answer
+• Create plausible wrong answers that reveal conceptual gaps
+
+EXPLANATION REQUIREMENTS:
+• Explain WHY the correct answer is right with supporting reasoning
+• Explain WHY each distractor is wrong and what misconception it represents
+• Add a key insight or learning point that extends understanding
+• Keep explanations concise but educational (2-4 sentences)
+
+OUTPUT: Return ONLY the JSON array. No markdown code blocks, no additional text, no preamble.`;
 
   try {
     // Check if NVIDIA API is configured
@@ -256,23 +280,42 @@ Return ONLY a valid JSON array, no other text.`;
 export async function extractTextFromPDF(file: File): Promise<string> {
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    // Load the PDF document with better error handling
+    const loadingTask = pdfjsLib.getDocument({ 
+      data: arrayBuffer,
+      useWorkerFetch: false,
+      isEvalSupported: false,
+      useSystemFonts: true,
+    });
+    
+    const pdf = await loadingTask.promise;
     
     let fullText = '';
     
     for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      fullText += pageText + '\n\n';
+      try {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        fullText += pageText + '\n\n';
+      } catch (pageError) {
+        console.warn(`Error extracting text from page ${i}:`, pageError);
+        // Continue with other pages
+      }
+    }
+    
+    if (!fullText.trim()) {
+      throw new Error('No text content found in PDF');
     }
     
     return fullText.trim();
   } catch (error) {
     console.error('Error extracting PDF text:', error);
-    throw new Error('Failed to extract text from PDF. Please try a different file.');
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to extract text from PDF: ${errorMessage}. The PDF may be scanned/image-based or corrupted.`);
   }
 }
 
@@ -376,46 +419,76 @@ export async function generateQuizFromText(
   const maxLength = 15000;
   const truncatedText = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
 
-  const systemPrompt = `You are an expert quiz creator. Generate educational multiple-choice quiz questions based on the provided content.
-Always respond with a valid JSON array of questions. Each question must have exactly 4 options with one correct answer.
+  const systemPrompt = `You are a master assessment designer specializing in content-based evaluation. Your expertise lies in extracting the most important concepts from source material and creating questions that verify true comprehension.
 
-Format your response as a JSON array:
+CORE PRINCIPLES:
+1. Extract ONLY information explicitly stated or strongly implied in the provided content
+2. Identify the most important concepts, definitions, relationships, and conclusions
+3. Create questions that distinguish between surface reading and deep understanding
+4. Design distractors using information from the text that could mislead someone who skimmed
+5. Test synthesis—connecting multiple parts of the content
+
+QUESTION CONSTRUCTION:
+✓ Focus on key takeaways, not trivial details
+✓ Test understanding of relationships between concepts
+✓ Use specific examples or data from the content
+✓ Create "near-miss" distractors using actual content words/phrases in wrong contexts
+✓ Assess whether learner can distinguish main ideas from supporting details
+
+DISTRACTOR STRATEGIES:
+• Use information from different sections of content (mixing related concepts)
+• Include true statements that don't answer the specific question
+• Present partial truths or incomplete information
+• Include common misinterpretations of the material
+
+Output Format (pure JSON array, no code blocks):
 [
   {
-    "question": "Question text here?",
+    "question": "Precise question directly tied to content?",
     "options": [
-      {"text": "Option A", "is_correct": false},
-      {"text": "Option B", "is_correct": true},
-      {"text": "Option C", "is_correct": false},
-      {"text": "Option D", "is_correct": false}
+      {"text": "Distractor using content terminology incorrectly", "is_correct": false},
+      {"text": "Accurate answer with specific content reference", "is_correct": true},
+      {"text": "True statement from content but wrong context", "is_correct": false},
+      {"text": "Plausible but contradicts information in content", "is_correct": false}
     ],
-    "explanation": "Brief explanation of why the correct answer is correct."
+    "explanation": "Correct answer verified by content: [specific reference]. Why others are wrong: [precise reasons with content citations]."
   }
 ]`;
 
   const difficultyInstructions = {
-    easy: 'Create straightforward questions based directly on facts in the text.',
-    medium: 'Create questions that require understanding and connecting concepts from the text.',
-    hard: 'Create challenging questions that require deep comprehension and inference.',
-    mixed: 'Create a mix of easy, medium, and hard questions.',
+    easy: 'EASY: Direct fact-recall from content. Question: "What is X?" or "According to the text, Y is defined as...". Correct answer uses exact or near-exact language from content. Distractors use related but incorrect terms from the text.',
+    medium: 'MEDIUM: Synthesis and relationship questions. Question: "How does X relate to Y?" or "What is the primary purpose of...". Requires connecting 2+ concepts from different parts of content. Distractors present plausible but incorrect relationships.',
+    hard: 'HARD: Inference and evaluation. Question: "What can be inferred about..." or "Which statement best explains...". Requires reading between lines and deep analysis. Distractors include sophisticated misinterpretations that seem logical but contradict subtle content points.',
+    mixed: 'MIXED: 40% easy (direct facts), 40% medium (concept relationships), 20% hard (inference/evaluation). Ensure comprehensive coverage of all major content sections.',
   };
 
-  const prompt = `Based on the following content, create ${questionCount} multiple-choice quiz questions.
+  const prompt = `Analyze the following content thoroughly and create ${questionCount} high-quality assessment questions that test genuine comprehension.
 
-CONTENT:
+=== SOURCE CONTENT ===
 ${truncatedText}
+=== END CONTENT ===
 
-Difficulty level: ${difficulty.toUpperCase()}
 ${difficultyInstructions[difficulty]}
 
-Requirements:
-- Questions must be based on the actual content provided
-- Each question must have exactly 4 options
-- Exactly one option must be correct
-- Include a brief explanation for each answer
-- Make questions educational and test real understanding
+STRICT REQUIREMENTS:
+1. CONTENT FIDELITY: Every question and answer must be verifiable in the provided content
+2. NO EXTERNAL KNOWLEDGE: Use ONLY information present in the content above
+3. KEY CONCEPTS FOCUS: Identify and test the 3-5 most important concepts/conclusions
+4. COMPREHENSIVE COVERAGE: Questions should span different sections of the content
+5. PRECISE LANGUAGE: Use specific terminology and phrasing from the source material
 
-Return ONLY a valid JSON array, no other text.`;
+DISTRACTOR CONSTRUCTION:
+• Extract phrases from content and use them out of context
+• Mix information from different sections incorrectly
+• Present true statements that don't answer the specific question asked
+• Include plausible inferences that the content actually contradicts
+
+EXPLANATION MANDATE:
+• Reference specific parts of the content ("As stated in paragraph X...", "The content indicates...")
+• Explain why each distractor is wrong with content-based reasoning
+• Include a brief elaboration that reinforces the key learning point
+
+CRITICAL: Output pure JSON array only. No markdown, no code blocks, no commentary.`;
 
   try {
     if (!isAIConfigured()) {
