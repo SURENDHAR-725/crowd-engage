@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useSessions } from "@/hooks/useSessions";
+import { supabase } from "@/lib/supabase";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,8 +84,36 @@ const Dashboard = () => {
   const [showAll, setShowAll] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [userName, setUserName] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
   const navigate = useNavigate();
   const { sessions, loading: sessionsLoading, updateSessionStatus, deleteSession } = useSessions();
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || "");
+        
+        // Fetch user profile data from users table
+        const { data: profile } = await supabase
+          .from('users')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.full_name) {
+          setUserName(profile.full_name);
+        } else if (user.user_metadata?.full_name) {
+          setUserName(user.user_metadata.full_name);
+        } else {
+          setUserName(user.email?.split('@')[0] || "User");
+        }
+      }
+    };
+    
+    fetchUserData();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -221,11 +250,11 @@ const Dashboard = () => {
         <div className="pt-6 border-t border-border">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-spark-teal flex items-center justify-center text-primary-foreground font-bold">
-              T
+              {userName ? userName.charAt(0).toUpperCase() : "U"}
             </div>
             <div>
-              <p className="font-medium text-sm">Test User</p>
-              <p className="text-xs text-muted-foreground">Dev Mode</p>
+              <p className="font-medium text-sm">{userName || "User"}</p>
+              <p className="text-xs text-muted-foreground truncate max-w-[150px]">{userEmail}</p>
             </div>
           </div>
           <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" onClick={() => navigate('/')}>
