@@ -78,6 +78,14 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
   const [timerInput, setTimerInput] = useState(30);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const buzzerSoundRef = useRef<HTMLAudioElement | null>(null);
+  const gameStateChannelRef = useRef<any>(null);
+  const hostChannelRef = useRef<any>(null);
+  const gameStateRef = useRef<BuzzerGameState>(gameState);
+  
+  // Keep gameStateRef in sync with gameState
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   // Subscribe to participants
   useEffect(() => {
@@ -103,7 +111,7 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
 
     fetchParticipants();
 
-    // Subscribe to participant changes
+    // Subscribe to participant changes and buzzer presses
     const channel = supabase
       .channel(`buzzer-host-${sessionId}`)
       .on('postgres_changes', {
@@ -127,11 +135,18 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
         }
       })
       .on('broadcast', { event: 'buzzer-press' }, ({ payload }) => {
+        console.log('📡 Host channel received broadcast:', payload);
         handleBuzzerPress(payload.participantId, payload.timestamp);
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('🔗 Host channel status:', status);
+        if (status === 'SUBSCRIBED') {
+          hostChannelRef.current = channel;
+        }
+      });
 
     return () => {
+      hostChannelRef.current = null;
       supabase.removeChannel(channel);
     };
   }, [sessionId]);
@@ -160,25 +175,54 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
     };
   }, [gameState.timerRunning, gameState.timerSeconds]);
 
-  // Broadcast game state changes
+  // Setup game state broadcast channel (persistent)
   useEffect(() => {
-    const channel = supabase.channel(`buzzer-game-${sessionId}`);
-    channel.send({
-      type: 'broadcast',
-      event: 'game-state',
-      payload: gameState
-    });
-  }, [gameState, sessionId]);
+    const channel = supabase
+      .channel(`buzzer-game-${sessionId}`)
+      .subscribe((status) => {
+        console.log('🎮 Game state channel:', status);
+        if (status === 'SUBSCRIBED') {
+          gameStateChannelRef.current = channel;
+        }
+      });
+    
+    return () => {
+      gameStateChannelRef.current = null;
+      supabase.removeChannel(channel);
+    };
+  }, [sessionId]);
 
-  const handleBuzzerPress = (participantId: string, timestamp: number) => {
-    if (gameState.status !== 'buzzer-open') return;
+  // Broadcast game state changes using persistent channel
+  useEffect(() => {
+    if (gameStateChannelRef.current) {
+      gameStateChannelRef.current.send({
+        type: 'broadcast',
+        event: 'game-state',
+        payload: gameState
+      });
+    }
+  }, [gameState]);
+
+  const handleBuzzerPress = useCallback((participantId: string, timestamp: number) => {
+    // Use ref to get the latest state (avoids stale closure issue)
+    const currentState = gameStateRef.current;
+    console.log('🔔 Host received buzzer press:', { participantId, timestamp, currentStatus: currentState.status });
+    
+    if (currentState.status !== 'buzzer-open') {
+      console.log('❌ Buzzer not open, ignoring press. Current status:', currentState.status);
+      return;
+    }
+    
+    // Check if already in queue
+    if (currentState.buzzerQueue.includes(participantId)) {
+      console.log('⚠️ Participant already in queue');
+      return;
+    }
+    
+    console.log('✅ Adding participant to queue:', participantId);
     
     setGameState(prev => {
-      // Check if already in queue
-      if (prev.buzzerQueue.includes(participantId)) return prev;
-      
       const newQueue = [...prev.buzzerQueue, participantId];
-      
       return {
         ...prev,
         buzzerQueue: newQueue
@@ -187,11 +231,10 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
 
     setParticipants(prev => prev.map(p => {
       if (p.id === participantId) {
-        const currentQueue = gameState.buzzerQueue;
         return {
           ...p,
           buzzerTime: timestamp,
-          buzzerOrder: currentQueue.length + 1
+          buzzerOrder: currentState.buzzerQueue.length + 1
         };
       }
       return p;
@@ -203,7 +246,7 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
       audio.volume = 0.3;
       audio.play().catch(() => {});
     } catch (e) {}
-  };
+  }, []);
 
   const copyCode = () => {
     navigator.clipboard.writeText(sessionCode);
@@ -232,12 +275,13 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
     })));
 
     // Broadcast buzzer open
-    const channel = supabase.channel(`buzzer-game-${sessionId}`);
-    channel.send({
-      type: 'broadcast',
-      event: 'buzzer-open',
-      payload: { questionNumber: gameState.questionNumber }
-    });
+    if (gameStateChannelRef.current) {
+      gameStateChannelRef.current.send({
+        type: 'broadcast',
+        event: 'buzzer-open',
+        payload: { questionNumber: gameState.questionNumber }
+      });
+    }
 
     toast.success("Buzzer is now open!");
   };
@@ -249,12 +293,13 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
     }));
 
     // Broadcast buzzer closed
-    const channel = supabase.channel(`buzzer-game-${sessionId}`);
-    channel.send({
-      type: 'broadcast',
-      event: 'buzzer-closed',
-      payload: {}
-    });
+    if (gameStateChannelRef.current) {
+      gameStateChannelRef.current.send({
+        type: 'broadcast',
+        event: 'buzzer-closed',
+        payload: {}
+      });
+    }
   };
 
   const giveChanceToNext = () => {
@@ -272,12 +317,13 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
       }));
 
       // Broadcast active participant change
-      const channel = supabase.channel(`buzzer-game-${sessionId}`);
-      channel.send({
-        type: 'broadcast',
-        event: 'active-participant',
-        payload: { participantId: nextParticipantId }
-      });
+      if (gameStateChannelRef.current) {
+        gameStateChannelRef.current.send({
+          type: 'broadcast',
+          event: 'active-participant',
+          payload: { participantId: nextParticipantId }
+        });
+      }
 
       toast.info("Passing to next participant");
     } else {
@@ -299,12 +345,13 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
     }));
 
     // Broadcast active participant
-    const channel = supabase.channel(`buzzer-game-${sessionId}`);
-    channel.send({
-      type: 'broadcast',
-      event: 'active-participant',
-      payload: { participantId }
-    });
+    if (gameStateChannelRef.current) {
+      gameStateChannelRef.current.send({
+        type: 'broadcast',
+        event: 'active-participant',
+        payload: { participantId }
+      });
+    }
   };
 
   const startTimer = () => {
@@ -314,12 +361,13 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
     }));
 
     // Broadcast timer start
-    const channel = supabase.channel(`buzzer-game-${sessionId}`);
-    channel.send({
-      type: 'broadcast',
-      event: 'timer-start',
-      payload: { seconds: gameState.timerSeconds }
-    });
+    if (gameStateChannelRef.current) {
+      gameStateChannelRef.current.send({
+        type: 'broadcast',
+        event: 'timer-start',
+        payload: { seconds: gameState.timerSeconds }
+      });
+    }
   };
 
   const pauseTimer = () => {
@@ -329,12 +377,13 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
     }));
 
     // Broadcast timer pause
-    const channel = supabase.channel(`buzzer-game-${sessionId}`);
-    channel.send({
-      type: 'broadcast',
-      event: 'timer-pause',
-      payload: {}
-    });
+    if (gameStateChannelRef.current) {
+      gameStateChannelRef.current.send({
+        type: 'broadcast',
+        event: 'timer-pause',
+        payload: {}
+      });
+    }
   };
 
   const resetTimer = () => {
@@ -363,12 +412,13 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
     }
 
     // Broadcast score update
-    const channel = supabase.channel(`buzzer-game-${sessionId}`);
-    channel.send({
-      type: 'broadcast',
-      event: 'score-update',
-      payload: { participantId, points }
-    });
+    if (gameStateChannelRef.current) {
+      gameStateChannelRef.current.send({
+        type: 'broadcast',
+        event: 'score-update',
+        payload: { participantId, points }
+      });
+    }
 
     toast.success(`${points > 0 ? '+' : ''}${points} points`);
   };
@@ -392,12 +442,13 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
     })));
 
     // Broadcast next question
-    const channel = supabase.channel(`buzzer-game-${sessionId}`);
-    channel.send({
-      type: 'broadcast',
-      event: 'next-question',
-      payload: { questionNumber: gameState.questionNumber + 1 }
-    });
+    if (gameStateChannelRef.current) {
+      gameStateChannelRef.current.send({
+        type: 'broadcast',
+        event: 'next-question',
+        payload: { questionNumber: gameState.questionNumber + 1 }
+      });
+    }
 
     toast.success("Moving to next question");
   };
@@ -418,17 +469,18 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic }: BuzzerHostPan
       .eq('id', sessionId);
 
     // Broadcast session end with final leaderboard
-    const channel = supabase.channel(`buzzer-game-${sessionId}`);
-    channel.send({
-      type: 'broadcast',
-      event: 'session-ended',
-      payload: { 
-        finalLeaderboard: finalLeaderboard.map((p, idx) => ({
-          ...p,
-          rank: idx + 1
-        }))
-      }
-    });
+    if (gameStateChannelRef.current) {
+      gameStateChannelRef.current.send({
+        type: 'broadcast',
+        event: 'session-ended',
+        payload: { 
+          finalLeaderboard: finalLeaderboard.map((p, idx) => ({
+            ...p,
+            rank: idx + 1
+          }))
+        }
+      });
+    }
 
     toast.success("Session ended!");
   };
@@ -1148,12 +1200,14 @@ export const BuzzerParticipantView = ({
       })
       .subscribe();
     
-    // Subscribe to the host channel for sending buzzer presses
+    // Subscribe to the host channel for sending buzzer presses (same channel name as host listens on)
     const hostChannel = supabase
-      .channel(`buzzer-host-${sessionId}`, {
-        config: { broadcast: { self: false } }
-      })
-      .subscribe();
+      .channel(`buzzer-host-${sessionId}`)
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Participant connected to host channel');
+        }
+      });
     
     buzzerChannelRef.current = hostChannel;
 
@@ -1228,13 +1282,21 @@ export const BuzzerParticipantView = ({
     setHasBuzzed(true);
     const timestamp = Date.now();
     
+    console.log('🎯 Participant pressing buzzer:', { participantId, timestamp, channelReady: !!buzzerChannelRef.current });
+    
     // Send buzzer press to host using the subscribed channel
     if (buzzerChannelRef.current) {
       buzzerChannelRef.current.send({
         type: 'broadcast',
         event: 'buzzer-press',
         payload: { participantId, timestamp }
+      }).then(() => {
+        console.log('✅ Buzzer press sent successfully');
+      }).catch((error: any) => {
+        console.error('❌ Failed to send buzzer press:', error);
       });
+    } else {
+      console.error('❌ Buzzer channel not ready!');
     }
 
     // Play sound
