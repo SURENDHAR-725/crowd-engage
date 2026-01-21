@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,19 +14,38 @@ import {
   Copy,
   Play,
   Loader2,
-  Trophy
+  Trophy,
+  Search,
+  Filter,
+  Sparkles,
+  Calendar,
+  TrendingUp,
+  Trash2,
+  BookOpen,
+  ThumbsUp,
+  Star,
+  Gamepad2,
+  RefreshCw
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useSessions } from "@/hooks/useSessions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 
 const pollTypes = [
   { 
     id: "mcq", 
     icon: BarChart3, 
     title: "Multiple Choice", 
-    description: "Classic poll with multiple options",
+    description: "Classic poll with options",
     color: "text-primary",
     bg: "bg-primary/10",
   },
@@ -34,74 +53,129 @@ const pollTypes = [
     id: "quiz", 
     icon: Timer, 
     title: "Timed Quiz", 
-    description: "Competitive quiz with scoring",
+    description: "Competitive with scoring",
     color: "text-spark-coral",
     bg: "bg-spark-coral/10",
   },
+  { 
+    id: "yesno", 
+    icon: ThumbsUp, 
+    title: "Yes/No Poll", 
+    description: "Quick binary decisions",
+    color: "text-spark-green",
+    bg: "bg-spark-green/10",
+  },
+  { 
+    id: "mocktest", 
+    icon: BookOpen, 
+    title: "Mock Test", 
+    description: "AI-powered practice",
+    color: "text-emerald-500",
+    bg: "bg-emerald-500/10",
+  },
 ];
+
+type StatusFilter = 'all' | 'active' | 'draft' | 'ended';
+type TypeFilter = 'all' | 'mcq' | 'quiz' | 'yesno' | 'rating' | 'minigame' | 'mocktest';
 
 const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const navigate = useNavigate();
   const { sessions, loading: sessionsLoading, updateSessionStatus, deleteSession } = useSessions();
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
-        return "bg-spark-green/10 text-spark-green";
+        return "bg-spark-green/10 text-spark-green border-spark-green/30";
       case "draft":
-        return "bg-muted text-muted-foreground";
+        return "bg-muted text-muted-foreground border-muted";
       case "ended":
-        return "bg-spark-coral/10 text-spark-coral";
+        return "bg-spark-coral/10 text-spark-coral border-spark-coral/30";
       default:
-        return "bg-muted text-muted-foreground";
+        return "bg-muted text-muted-foreground border-muted";
     }
   };
 
-  const getTypeIcon = (type: string) => {
+  const getTypeConfig = (type: string) => {
     switch (type) {
-      case "poll":
-        return BarChart3;
       case "quiz":
-        return Timer;
+        return { icon: Timer, color: "text-spark-coral", bg: "bg-spark-coral/10" };
+      case "yesno":
+        return { icon: ThumbsUp, color: "text-spark-green", bg: "bg-spark-green/10" };
+      case "rating":
+        return { icon: Star, color: "text-amber-500", bg: "bg-amber-500/10" };
+      case "minigame":
+        return { icon: Gamepad2, color: "text-purple-500", bg: "bg-purple-500/10" };
+      case "mocktest":
+        return { icon: BookOpen, color: "text-emerald-500", bg: "bg-emerald-500/10" };
       default:
-        return BarChart3;
+        return { icon: BarChart3, color: "text-primary", bg: "bg-primary/10" };
     }
   };
 
-  const copySessionCode = (code: string) => {
+  const copySessionCode = (code: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     navigator.clipboard.writeText(code);
     toast.success(`Code ${code} copied to clipboard!`);
   };
 
-  const handleLaunchSession = async (sessionId: string) => {
+  const handleLaunchSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     await updateSessionStatus(sessionId, 'active');
-    // Navigate to present view (to be implemented)
   };
 
-  const handleDeleteSession = async (sessionId: string) => {
+  const handleDeleteSession = async (sessionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (confirm('Are you sure you want to delete this session?')) {
       await deleteSession(sessionId);
     }
   };
 
-  const filteredSessions = sessions.filter(session =>
-    session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    session.code.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter and search sessions
+  const filteredSessions = useMemo(() => {
+    return sessions.filter(session => {
+      const matchesSearch = 
+        session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        session.code.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || session.status === statusFilter;
+      const matchesType = typeFilter === 'all' || session.type === typeFilter;
+      return matchesSearch && matchesStatus && matchesType;
+    });
+  }, [sessions, searchQuery, statusFilter, typeFilter]);
 
-  // Show only 5 sessions by default, or all if showAll is true or searching
-  const displayedSessions = (showAll || searchQuery) ? filteredSessions : filteredSessions.slice(0, 5);
+  // Stats
+  const stats = useMemo(() => ({
+    total: sessions.length,
+    active: sessions.filter(s => s.status === 'active').length,
+    totalParticipants: sessions.reduce((acc, s) => acc + s.participant_count, 0),
+    thisWeek: sessions.filter(s => {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return new Date(s.created_at) >= weekAgo;
+    }).length,
+  }), [sessions]);
+
+  const displayedSessions = (showAll || searchQuery || statusFilter !== 'all' || typeFilter !== 'all') 
+    ? filteredSessions 
+    : filteredSessions.slice(0, 5);
   const hasMoreSessions = filteredSessions.length > 5;
 
   if (sessionsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
           <p className="text-muted-foreground">Loading dashboard...</p>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -112,9 +186,12 @@ const Dashboard = () => {
       <aside className="fixed left-0 top-0 h-full w-64 bg-card border-r border-border p-6 hidden lg:flex flex-col">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 mb-8">
-          <div className="w-10 h-10 rounded-xl btn-gradient flex items-center justify-center">
+          <motion.div 
+            className="w-10 h-10 rounded-xl btn-gradient flex items-center justify-center"
+            whileHover={{ scale: 1.05, rotate: 5 }}
+          >
             <Zap className="w-5 h-5 text-primary-foreground" />
-          </div>
+          </motion.div>
           <span className="font-display text-xl font-bold text-gradient">
             CrowdSpark
           </span>
@@ -129,6 +206,10 @@ const Dashboard = () => {
           <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted transition-colors">
             <Users className="w-5 h-5" />
             Audience
+          </a>
+          <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted transition-colors">
+            <TrendingUp className="w-5 h-5" />
+            Analytics
           </a>
           <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted transition-colors">
             <Settings className="w-5 h-5" />
@@ -171,16 +252,20 @@ const Dashboard = () => {
             </div>
             <div className="hidden lg:block">
               <h1 className="text-2xl font-display font-bold">Sessions</h1>
+              <p className="text-sm text-muted-foreground">Manage your interactive sessions</p>
             </div>
             <div className="flex items-center gap-3">
-              <Input
-                placeholder="Search sessions..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-64 hidden md:block"
-              />
+              <div className="relative hidden md:block">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search sessions..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-64 pl-9"
+                />
+              </div>
               <Button variant="gradient" onClick={() => navigate('/create')}>
-                <Plus className="w-4 h-4" />
+                <Plus className="w-4 h-4 mr-2" />
                 New Session
               </Button>
             </div>
@@ -188,30 +273,68 @@ const Dashboard = () => {
         </header>
 
         <div className="p-6 space-y-8">
+          {/* Stats Cards */}
+          {sessions.length > 0 && (
+            <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { label: 'Total Sessions', value: stats.total, icon: BarChart3, color: 'text-primary' },
+                { label: 'Active Now', value: stats.active, icon: Play, color: 'text-spark-green' },
+                { label: 'Total Participants', value: stats.totalParticipants, icon: Users, color: 'text-spark-coral' },
+                { label: 'This Week', value: stats.thisWeek, icon: Calendar, color: 'text-spark-teal' },
+              ].map((stat, i) => (
+                <motion.div
+                  key={stat.label}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                >
+                  <Card className="border-border/50">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground">{stat.label}</p>
+                          <p className="text-2xl font-bold">{stat.value}</p>
+                        </div>
+                        <div className={`w-10 h-10 rounded-xl bg-muted flex items-center justify-center`}>
+                          <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </section>
+          )}
+
           {/* Quick Create */}
           <section>
-            <h2 className="text-lg font-display font-semibold mb-4">Quick Create</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {pollTypes.map((type) => (
+            <h2 className="text-lg font-display font-semibold mb-4 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              Quick Create
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {pollTypes.map((type, i) => (
                 <motion.div
                   key={type.id}
-                  whileHover={{ scale: 1.02 }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                 >
                   <Card 
                     variant="glass" 
-                    className="cursor-pointer card-hover"
+                    className="cursor-pointer card-hover h-full"
                     onClick={() => navigate(`/create?type=${type.id}`)}
                   >
-                    <CardContent className="p-6 flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-xl ${type.bg} flex items-center justify-center`}>
-                        <type.icon className={`w-6 h-6 ${type.color}`} />
+                    <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                      <div className={`w-14 h-14 rounded-2xl ${type.bg} flex items-center justify-center`}>
+                        <type.icon className={`w-7 h-7 ${type.color}`} />
                       </div>
-                      <div className="flex-1">
+                      <div>
                         <h3 className="font-semibold">{type.title}</h3>
-                        <p className="text-sm text-muted-foreground">{type.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{type.description}</p>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -223,124 +346,196 @@ const Dashboard = () => {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-display font-semibold">Recent Sessions</h2>
-              {hasMoreSessions && !searchQuery && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={() => setShowAll(!showAll)}
-                >
-                  {showAll ? 'Show Less' : `View All (${filteredSessions.length})`}
-                  <ChevronRight className={`w-4 h-4 ml-1 transition-transform ${showAll ? 'rotate-90' : ''}`} />
-                </Button>
-              )}
-            </div>
-            {filteredSessions.length === 0 ? (
-              <Card variant="default">
-                <CardContent className="p-12 text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-muted mx-auto mb-4 flex items-center justify-center">
-                    <BarChart3 className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="font-semibold mb-2">No sessions yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    {searchQuery ? 'No sessions match your search' : 'Create your first interactive session to get started'}
-                  </p>
-                  {!searchQuery && (
-                    <Button variant="gradient" onClick={() => navigate('/create')}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Session
+              <div className="flex items-center gap-2">
+                {/* Status Filter */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9">
+                      <Filter className="w-4 h-4 mr-2" />
+                      {statusFilter === 'all' ? 'All Status' : statusFilter}
                     </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {displayedSessions.map((session) => {
-                  const TypeIcon = getTypeIcon(session.type);
-                  return (
-                    <motion.div
-                      key={session.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      whileHover={{ scale: 1.01 }}
-                    >
-                      <Card variant="default" className="card-hover">
-                        <CardContent className="p-4 flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
-                            <TypeIcon className="w-6 h-6 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-semibold truncate">{session.title}</h3>
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(session.status)}`}>
-                                {session.status}
-                              </span>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {['all', 'active', 'draft', 'ended'].map((status) => (
+                      <DropdownMenuItem
+                        key={status}
+                        onClick={() => setStatusFilter(status as StatusFilter)}
+                        className={statusFilter === status ? 'bg-primary/10' : ''}
+                      >
+                        {status === 'all' ? 'All Status' : status.charAt(0).toUpperCase() + status.slice(1)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {hasMoreSessions && !searchQuery && statusFilter === 'all' && typeFilter === 'all' && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowAll(!showAll)}
+                  >
+                    {showAll ? 'Show Less' : `View All (${filteredSessions.length})`}
+                    <ChevronRight className={`w-4 h-4 ml-1 transition-transform ${showAll ? 'rotate-90' : ''}`} />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <AnimatePresence mode="wait">
+              {filteredSessions.length === 0 ? (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <Card variant="default">
+                    <CardContent className="p-12 text-center">
+                      <motion.div 
+                        className="w-20 h-20 rounded-3xl bg-muted mx-auto mb-4 flex items-center justify-center"
+                        initial={{ scale: 0.8 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring" }}
+                      >
+                        <BarChart3 className="w-10 h-10 text-muted-foreground" />
+                      </motion.div>
+                      <h3 className="font-semibold text-lg mb-2">
+                        {searchQuery || statusFilter !== 'all' || typeFilter !== 'all' 
+                          ? 'No matching sessions' 
+                          : 'No sessions yet'}
+                      </h3>
+                      <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+                        {searchQuery || statusFilter !== 'all' || typeFilter !== 'all'
+                          ? 'Try adjusting your filters or search query'
+                          : 'Create your first interactive session to engage your audience'}
+                      </p>
+                      {!searchQuery && statusFilter === 'all' && typeFilter === 'all' && (
+                        <Button variant="gradient" onClick={() => navigate('/create')}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Create Session
+                        </Button>
+                      )}
+                      {(searchQuery || statusFilter !== 'all' || typeFilter !== 'all') && (
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setSearchQuery('');
+                            setStatusFilter('all');
+                            setTypeFilter('all');
+                          }}
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Clear Filters
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="list"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-3"
+                >
+                  {displayedSessions.map((session, i) => {
+                    const typeConfig = getTypeConfig(session.type);
+                    const TypeIcon = typeConfig.icon;
+                    return (
+                      <motion.div
+                        key={session.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        whileHover={{ scale: 1.01, x: 4 }}
+                        onClick={() => navigate(`/session/${session.code}?host=true`)}
+                        className="cursor-pointer"
+                      >
+                        <Card variant="default" className="card-hover border-border/50">
+                          <CardContent className="p-4 flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-xl ${typeConfig.bg} flex items-center justify-center shrink-0`}>
+                              <TypeIcon className={`w-6 h-6 ${typeConfig.color}`} />
                             </div>
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Users className="w-4 h-4" />
-                                {session.participant_count}
-                              </span>
-                              <span>Code: {session.code}</span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold truncate">{session.title}</h3>
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize border ${getStatusColor(session.status)}`}>
+                                  {session.status}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <Users className="w-4 h-4" />
+                                  {session.participant_count}
+                                </span>
+                                <span className="font-mono">#{session.code}</span>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => copySessionCode(session.code)}
-                            >
-                              <Copy className="w-4 h-4" />
-                            </Button>
-                            {session.status === "active" && (
-                              <Button variant="gradient" size="sm" onClick={() => navigate(`/session/${session.code}`)}>
-                                <Play className="w-4 h-4 mr-1" />
-                                Present
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => copySessionCode(session.code, e)}
+                              >
+                                <Copy className="w-4 h-4" />
                               </Button>
-                            )}
-                            {session.status === "draft" && (
-                              <>
-                                <Button variant="outline" size="sm" onClick={() => handleLaunchSession(session.id)}>
+                              {session.status === "active" && (
+                                <Button 
+                                  variant="gradient" 
+                                  size="sm" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/session/${session.code}`);
+                                  }}
+                                >
+                                  <Play className="w-4 h-4 mr-1" />
+                                  Present
+                                </Button>
+                              )}
+                              {session.status === "draft" && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={(e) => handleLaunchSession(session.id, e)}
+                                >
                                   <Play className="w-4 h-4 mr-1" />
                                   Launch
                                 </Button>
-                              </>
-                            )}
-                            {session.status === "ended" && (
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => navigate(`/session/${session.code}?host=true`)}
+                              )}
+                              {session.status === "ended" && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/session/${session.code}?host=true`);
+                                  }}
+                                >
+                                  <Trophy className="w-4 h-4 mr-1" />
+                                  Results
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-destructive"
+                                onClick={(e) => handleDeleteSession(session.id, e)}
                               >
-                                <Trophy className="w-4 h-4 mr-1" />
-                                Results
+                                <Trash2 className="w-4 h-4" />
                               </Button>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </section>
-
-          {/* Empty State */}
-          {filteredSessions.length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
-                <BarChart3 className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="font-display font-semibold text-lg mb-2">No sessions found</h3>
-              <p className="text-muted-foreground mb-4">
-                {searchQuery ? "Try a different search term" : "Create your first session to get started"}
-              </p>
-              <Button variant="gradient" onClick={() => navigate('/create')}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Session
-              </Button>
-            </div>
-          )}
         </div>
       </main>
     </div>

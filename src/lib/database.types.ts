@@ -74,6 +74,15 @@ export interface ChaosReaction {
   intensity: number;
 }
 
+// Battle mode team type
+export interface BattleTeam {
+  id: string;
+  name: string;
+  color: string;
+  score: number;
+  memberIds: string[];
+}
+
 export interface Database {
   public: {
     Tables: {
