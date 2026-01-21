@@ -4,6 +4,16 @@
   publish = "dist"
   command = "npm run build"
 
+[functions]
+  directory = "netlify/functions"
+
+# Proxy API requests to serverless function
+[[redirects]]
+  from = "/api/nvidia/*"
+  to = "/.netlify/functions/nvidia-proxy"
+  status = 200
+  force = true
+
 # Redirect all routes to index.html for client-side routing
 [[redirects]]
   from = "/*"

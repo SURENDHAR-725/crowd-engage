@@ -6,10 +6,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 
 // NVIDIA API configuration
 const NVIDIA_API_KEY = import.meta.env.VITE_NVIDIA_API_KEY || '';
-// Use proxy in development to avoid CORS issues
-const NVIDIA_API_URL = import.meta.env.DEV 
-  ? '/api/nvidia/v1/chat/completions' 
-  : 'https://integrate.api.nvidia.com/v1/chat/completions';
+// Use serverless function proxy to avoid CORS issues in both dev and production
+const NVIDIA_API_URL = '/api/nvidia/v1/chat/completions';
 const NVIDIA_MODEL = 'meta/llama-3.3-70b-instruct'; // Best for educational content generation
 let nvidiaCooldownUntil = 0;
 
