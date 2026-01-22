@@ -54,29 +54,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        toast.error(error.message);
+        // Handle common signup errors with user-friendly messages
+        let errorMessage = error.message;
+
+        if (error.message.includes('Database error')) {
+          errorMessage = 'Unable to create account. Please try again later.';
+        } else if (error.message.includes('already registered')) {
+          errorMessage = 'This email is already registered. Please sign in instead.';
+        }
+
+        toast.error(errorMessage);
         return { error };
       }
 
       if (data.user) {
-        // Create user profile in public.users table
-        try {
-          await supabase.from('users').insert({
-            id: data.user.id,
-            email: data.user.email!,
-            full_name: fullName || null,
-          } as any);
-        } catch (profileError) {
-          console.error('Error creating user profile:', profileError);
-        }
-
         toast.success('Account created! Please check your email to verify.');
       }
 
       return { error: null };
     } catch (error) {
       const authError = error as AuthError;
-      toast.error(authError.message);
+      toast.error('An unexpected error occurred. Please try again.');
       return { error: authError };
     }
   };
