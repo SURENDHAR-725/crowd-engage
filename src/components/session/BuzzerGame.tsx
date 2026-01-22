@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
+import {
   Bell,
   Timer,
   Trophy,
@@ -83,7 +83,7 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
   const gameStateChannelRef = useRef<any>(null);
   const hostChannelRef = useRef<any>(null);
   const gameStateRef = useRef<BuzzerGameState>(gameState);
-  
+
   // Keep gameStateRef in sync with gameState
   useEffect(() => {
     gameStateRef.current = gameState;
@@ -96,7 +96,7 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
         .from('participants')
         .select('*')
         .eq('session_id', sessionId);
-      
+
       if (data) {
         setParticipants(data.map(p => ({
           id: p.id,
@@ -187,7 +187,7 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
           gameStateChannelRef.current = channel;
         }
       });
-    
+
     return () => {
       gameStateChannelRef.current = null;
       supabase.removeChannel(channel);
@@ -209,20 +209,20 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
     // Use ref to get the latest state (avoids stale closure issue)
     const currentState = gameStateRef.current;
     console.log('🔔 Host received buzzer press:', { participantId, timestamp, currentStatus: currentState.status });
-    
+
     if (currentState.status !== 'buzzer-open') {
       console.log('❌ Buzzer not open, ignoring press. Current status:', currentState.status);
       return;
     }
-    
+
     // Check if already in queue
     if (currentState.buzzerQueue.includes(participantId)) {
       console.log('⚠️ Participant already in queue');
       return;
     }
-    
+
     console.log('✅ Adding participant to queue:', participantId);
-    
+
     setGameState(prev => {
       const newQueue = [...prev.buzzerQueue, participantId];
       return {
@@ -246,8 +246,8 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
     try {
       const audio = new Audio('/buzzer.mp3');
       audio.volume = 0.3;
-      audio.play().catch(() => {});
-    } catch (e) {}
+      audio.play().catch(() => { });
+    } catch (e) { }
   }, []);
 
   const copyCode = () => {
@@ -267,7 +267,7 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
       timerSeconds: timerInput,
       maxTimerSeconds: timerInput
     }));
-    
+
     // Reset participant buzzer state
     setParticipants(prev => prev.map(p => ({
       ...p,
@@ -307,7 +307,7 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
   const giveChanceToNext = () => {
     const queue = gameState.buzzerQueue;
     const currentIdx = queue.indexOf(gameState.activeParticipantId || '');
-    
+
     if (currentIdx < queue.length - 1) {
       const nextParticipantId = queue[currentIdx + 1];
       setGameState(prev => ({
@@ -458,7 +458,7 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
   const endSession = async () => {
     // Get final leaderboard before ending
     const finalLeaderboard = [...participants].sort((a, b) => b.score - a.score);
-    
+
     // Update session status in database FIRST
     await supabase
       .from('sessions')
@@ -477,7 +477,7 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
         gameStateChannelRef.current.send({
           type: 'broadcast',
           event: 'session-ended',
-          payload: { 
+          payload: {
             finalLeaderboard: finalLeaderboard.map((p, idx) => ({
               ...p,
               rank: idx + 1
@@ -492,7 +492,7 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
 
   // Sort participants by score for leaderboard
   const sortedParticipants = [...participants].sort((a, b) => b.score - a.score);
-  
+
   // Sort buzzer queue participants
   const buzzerQueueParticipants = gameState.buzzerQueue
     .map(id => participants.find(p => p.id === id))
@@ -513,17 +513,17 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
       <div className="min-h-screen bg-gradient-to-b from-background to-primary/5 p-4 md:p-8">
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Header */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center pt-8"
+            className="text-center pt-8 pb-4"
           >
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.2, type: "spring" }}
             >
-              <Trophy className="w-24 h-24 mx-auto mb-4 text-amber-500" />
+              <Trophy className="w-16 h-16 mx-auto mb-4 text-amber-500" />
             </motion.div>
             <h1 className="text-4xl font-display font-bold mb-2">Game Complete!</h1>
             <p className="text-muted-foreground text-lg">Topic: {topic}</p>
@@ -532,14 +532,14 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
 
           {/* Top 3 Podium */}
           {sortedParticipants.length >= 3 && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
               className="flex items-end justify-center gap-6 h-64 mb-8"
             >
               {/* 2nd Place */}
-              <motion.div 
+              <motion.div
                 initial={{ y: 50, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.6 }}
@@ -553,9 +553,9 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                 </div>
                 <Badge className="mt-2 bg-gray-400">2nd Place</Badge>
               </motion.div>
-              
+
               {/* 1st Place */}
-              <motion.div 
+              <motion.div
                 initial={{ y: 50, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.5 }}
@@ -569,9 +569,9 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                 </div>
                 <Badge className="mt-2 bg-amber-500">🏆 Winner</Badge>
               </motion.div>
-              
+
               {/* 3rd Place */}
-              <motion.div 
+              <motion.div
                 initial={{ y: 50, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.7 }}
@@ -608,9 +608,8 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.9 + index * 0.05 }}
-                    className={`flex items-center justify-between p-4 rounded-xl ${
-                      index < 3 ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-muted/50'
-                    }`}
+                    className={`flex items-center justify-between p-4 rounded-xl ${index < 3 ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-muted/50'
+                      }`}
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 flex justify-center">
@@ -708,12 +707,12 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
             </h1>
             <p className="text-muted-foreground mt-1">Topic: {topic}</p>
           </div>
-          
+
           {/* Join Code */}
           <Card className="border-primary bg-primary/5">
             <CardContent className="p-4 flex items-center gap-4">
               <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-1">Join Code</p>
+                <p className="text-xs text-muted-foreground mb-1">Session Code</p>
                 <p className="text-3xl font-mono font-bold tracking-wider text-primary">
                   {sessionCode}
                 </p>
@@ -726,11 +725,10 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
         </div>
 
         {/* Game Status */}
-        <Card className={`border-2 ${
-          gameState.status === 'buzzer-open' ? 'border-green-500 bg-green-500/5' :
+        <Card className={`border-2 ${gameState.status === 'buzzer-open' ? 'border-green-500 bg-green-500/5' :
           gameState.status === 'answering' ? 'border-amber-500 bg-amber-500/5' :
-          'border-primary bg-primary/5'
-        }`}>
+            'border-primary bg-primary/5'
+          }`}>
           <CardContent className="p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -741,12 +739,11 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                 <Badge variant="outline" className="text-lg px-4 py-1">
                   Question #{gameState.questionNumber}
                 </Badge>
-                <Badge 
-                  className={`text-sm px-3 py-1 ${
-                    gameState.status === 'buzzer-open' ? 'bg-green-500' :
+                <Badge
+                  className={`text-sm px-3 py-1 ${gameState.status === 'buzzer-open' ? 'bg-green-500' :
                     gameState.status === 'answering' ? 'bg-amber-500' :
-                    'bg-primary'
-                  }`}
+                      'bg-primary'
+                    }`}
                 >
                   {gameState.status === 'waiting' && 'Waiting'}
                   {gameState.status === 'buzzer-open' && '🔔 BUZZER OPEN'}
@@ -755,8 +752,8 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                 </Badge>
               </div>
 
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={endSession}
                 className="gap-2"
               >
@@ -795,9 +792,9 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                 {/* Action Buttons */}
                 <div className="flex flex-wrap gap-3">
                   {gameState.status === 'waiting' && (
-                    <Button 
-                      variant="gradient" 
-                      size="lg" 
+                    <Button
+                      variant="gradient"
+                      size="lg"
                       onClick={openBuzzer}
                       className="flex-1 min-w-[150px] gap-2"
                     >
@@ -807,9 +804,9 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                   )}
 
                   {gameState.status === 'buzzer-open' && (
-                    <Button 
-                      variant="default" 
-                      size="lg" 
+                    <Button
+                      variant="default"
+                      size="lg"
                       onClick={closeBuzzer}
                       className="flex-1 min-w-[150px] gap-2 bg-amber-500 hover:bg-amber-600"
                     >
@@ -820,18 +817,18 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
 
                   {(gameState.status === 'answering' || gameState.status === 'scoring') && (
                     <>
-                      <Button 
-                        variant="outline" 
-                        size="lg" 
+                      <Button
+                        variant="outline"
+                        size="lg"
                         onClick={giveChanceToNext}
                         className="gap-2"
                       >
                         <SkipForward className="w-5 h-5" />
                         Next in Queue
                       </Button>
-                      <Button 
-                        variant="gradient" 
-                        size="lg" 
+                      <Button
+                        variant="gradient"
+                        size="lg"
                         onClick={nextQuestion}
                         className="flex-1 min-w-[150px] gap-2"
                       >
@@ -847,11 +844,10 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                   <div className="p-6 bg-muted/50 rounded-xl text-center">
                     <div className="flex items-center justify-center gap-3 mb-4">
                       <Timer className={`w-8 h-8 ${gameState.timerRunning ? 'text-green-500 animate-pulse' : 'text-muted-foreground'}`} />
-                      <span className={`text-5xl font-mono font-bold ${
-                        gameState.timerSeconds <= 5 ? 'text-red-500' :
+                      <span className={`text-5xl font-mono font-bold ${gameState.timerSeconds <= 5 ? 'text-red-500' :
                         gameState.timerSeconds <= 10 ? 'text-amber-500' :
-                        'text-primary'
-                      }`}>
+                          'text-primary'
+                        }`}>
                         {gameState.timerSeconds}s
                       </span>
                     </div>
@@ -905,18 +901,16 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                           exit={{ opacity: 0, x: 20 }}
                           transition={{ delay: index * 0.1 }}
                           onClick={() => selectParticipantFromQueue(participant.id)}
-                          className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all ${
-                            gameState.activeParticipantId === participant.id
-                              ? 'bg-primary/20 border-2 border-primary ring-2 ring-primary/50'
-                              : index === 0
-                                ? 'bg-green-500/10 border border-green-500/50 hover:bg-green-500/20'
-                                : 'bg-muted/50 hover:bg-muted'
-                          }`}
+                          className={`flex items-center justify-between p-4 rounded-xl cursor-pointer transition-all ${gameState.activeParticipantId === participant.id
+                            ? 'bg-primary/20 border-2 border-primary ring-2 ring-primary/50'
+                            : index === 0
+                              ? 'bg-green-500/10 border border-green-500/50 hover:bg-green-500/20'
+                              : 'bg-muted/50 hover:bg-muted'
+                            }`}
                         >
                           <div className="flex items-center gap-4">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${
-                              index === 0 ? 'bg-green-500/20' : 'bg-muted'
-                            }`}>
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${index === 0 ? 'bg-green-500/20' : 'bg-muted'
+                              }`}>
                               {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
                             </div>
                             <div>
@@ -958,7 +952,7 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                   {(() => {
                     const activeP = participants.find(p => p.id === gameState.activeParticipantId);
                     if (!activeP) return null;
-                    
+
                     return (
                       <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 bg-muted/50 rounded-xl">
                         <div className="flex items-center gap-3">
@@ -969,40 +963,40 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap justify-center">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="lg"
                             onClick={() => addPoints(activeP.id, -10)}
                             className="text-red-500 border-red-500/50"
                           >
                             <Minus className="w-4 h-4 mr-1" /> 10
                           </Button>
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="lg"
                             onClick={() => addPoints(activeP.id, -5)}
                             className="text-red-400 border-red-400/50"
                           >
                             <Minus className="w-4 h-4 mr-1" /> 5
                           </Button>
-                          <Button 
-                            variant="default" 
+                          <Button
+                            variant="default"
                             size="lg"
                             onClick={() => addPoints(activeP.id, 5)}
                             className="bg-green-500 hover:bg-green-600"
                           >
                             <Plus className="w-4 h-4 mr-1" /> 5
                           </Button>
-                          <Button 
-                            variant="default" 
+                          <Button
+                            variant="default"
                             size="lg"
                             onClick={() => addPoints(activeP.id, 10)}
                             className="bg-green-600 hover:bg-green-700"
                           >
                             <Plus className="w-4 h-4 mr-1" /> 10
                           </Button>
-                          <Button 
-                            variant="gradient" 
+                          <Button
+                            variant="gradient"
                             size="lg"
                             onClick={() => addPoints(activeP.id, 20)}
                           >
@@ -1039,11 +1033,9 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className={`flex items-center justify-between p-3 rounded-lg ${
-                        index < 3 ? 'bg-primary/5' : 'bg-muted/50'
-                      } ${
-                        gameState.activeParticipantId === participant.id ? 'ring-2 ring-primary' : ''
-                      }`}
+                      className={`flex items-center justify-between p-3 rounded-lg ${index < 3 ? 'bg-primary/5' : 'bg-muted/50'
+                        } ${gameState.activeParticipantId === participant.id ? 'ring-2 ring-primary' : ''
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 flex justify-center">
@@ -1062,17 +1054,17 @@ export const BuzzerHostPanel = ({ sessionCode, sessionId, topic, initialStatus }
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-lg">{participant.score}</span>
                         <div className="flex flex-col gap-1">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-6 w-6"
                             onClick={() => addPoints(participant.id, 5)}
                           >
                             <Plus className="w-3 h-3" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-6 w-6"
                             onClick={() => addPoints(participant.id, -5)}
                           >
@@ -1101,12 +1093,12 @@ interface BuzzerParticipantViewProps {
   avatar: string;
 }
 
-export const BuzzerParticipantView = ({ 
-  sessionId, 
-  sessionCode, 
-  participantId, 
-  nickname, 
-  avatar 
+export const BuzzerParticipantView = ({
+  sessionId,
+  sessionCode,
+  participantId,
+  nickname,
+  avatar
 }: BuzzerParticipantViewProps) => {
   const [gameState, setGameState] = useState<BuzzerGameState>({
     status: 'waiting',
@@ -1128,7 +1120,7 @@ export const BuzzerParticipantView = ({
 
   // Subscribe to game state and also create channel for sending buzzer presses
   const buzzerChannelRef = useRef<any>(null);
-  
+
   useEffect(() => {
     // Subscribe to game events on the main game channel
     const gameChannel = supabase
@@ -1208,7 +1200,7 @@ export const BuzzerParticipantView = ({
         }));
       })
       .subscribe();
-    
+
     // Subscribe to the host channel for sending buzzer presses (same channel name as host listens on)
     const hostChannel = supabase
       .channel(`buzzer-host-${sessionId}`)
@@ -1217,7 +1209,7 @@ export const BuzzerParticipantView = ({
           console.log('Participant connected to host channel');
         }
       });
-    
+
     buzzerChannelRef.current = hostChannel;
 
     // Fetch initial score
@@ -1227,7 +1219,7 @@ export const BuzzerParticipantView = ({
         .select('score')
         .eq('id', participantId)
         .single();
-      
+
       if (data) setScore(data.score || 0);
     };
     fetchScore();
@@ -1239,7 +1231,7 @@ export const BuzzerParticipantView = ({
         .select('*')
         .eq('session_id', sessionId)
         .order('score', { ascending: false });
-      
+
       if (data) {
         setLeaderboard(data.map(p => ({
           id: p.id,
@@ -1285,7 +1277,7 @@ export const BuzzerParticipantView = ({
             .select('*')
             .eq('session_id', sessionId)
             .order('score', { ascending: false });
-          
+
           if (data) {
             const finalBoard = data.map((p, idx) => ({
               id: p.id,
@@ -1300,7 +1292,7 @@ export const BuzzerParticipantView = ({
             }));
             setFinalLeaderboard(finalBoard);
           }
-          
+
           setGameState(prev => ({
             ...prev,
             status: 'ended'
@@ -1330,12 +1322,12 @@ export const BuzzerParticipantView = ({
 
   const pressBuzzer = () => {
     if (hasBuzzed || gameState.status !== 'buzzer-open') return;
-    
+
     setHasBuzzed(true);
     const timestamp = Date.now();
-    
+
     console.log('🎯 Participant pressing buzzer:', { participantId, timestamp, channelReady: !!buzzerChannelRef.current });
-    
+
     // Send buzzer press to host using the subscribed channel
     if (buzzerChannelRef.current) {
       buzzerChannelRef.current.send({
@@ -1355,8 +1347,8 @@ export const BuzzerParticipantView = ({
     try {
       const audio = new Audio('/click.mp3');
       audio.volume = 0.5;
-      audio.play().catch(() => {});
-    } catch (e) {}
+      audio.play().catch(() => { });
+    } catch (e) { }
 
     toast.success("Buzzer pressed!");
   };
@@ -1371,8 +1363,8 @@ export const BuzzerParticipantView = ({
   };
 
   const myRank = leaderboard.findIndex(p => p.id === participantId) + 1;
-  const myFinalRank = finalLeaderboard.length > 0 
-    ? finalLeaderboard.findIndex(p => p.id === participantId) + 1 
+  const myFinalRank = finalLeaderboard.length > 0
+    ? finalLeaderboard.findIndex(p => p.id === participantId) + 1
     : myRank;
 
   // Final leaderboard screen when game ends
@@ -1380,12 +1372,12 @@ export const BuzzerParticipantView = ({
     const displayLeaderboard = finalLeaderboard.length > 0 ? finalLeaderboard : leaderboard.map((p, idx) => ({ ...p, rank: idx + 1 }));
     const myEntry = displayLeaderboard.find(p => p.id === participantId);
     const topThree = displayLeaderboard.slice(0, 3);
-    
+
     return (
       <div className="min-h-screen bg-gradient-to-b from-background to-primary/5 p-4">
         <div className="max-w-2xl mx-auto space-y-6">
           {/* Header */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             className="text-center pt-8"
@@ -1403,14 +1395,14 @@ export const BuzzerParticipantView = ({
 
           {/* Podium - Top 3 */}
           {topThree.length >= 3 && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
               className="flex items-end justify-center gap-4 h-48"
             >
               {/* 2nd Place */}
-              <motion.div 
+              <motion.div
                 initial={{ y: 50, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.6 }}
@@ -1423,9 +1415,9 @@ export const BuzzerParticipantView = ({
                   <Medal className="w-8 h-8 text-gray-400" />
                 </div>
               </motion.div>
-              
+
               {/* 1st Place */}
-              <motion.div 
+              <motion.div
                 initial={{ y: 50, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.5 }}
@@ -1438,9 +1430,9 @@ export const BuzzerParticipantView = ({
                   <Crown className="w-10 h-10 text-amber-500" />
                 </div>
               </motion.div>
-              
+
               {/* 3rd Place */}
-              <motion.div 
+              <motion.div
                 initial={{ y: 50, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.7 }}
@@ -1503,11 +1495,10 @@ export const BuzzerParticipantView = ({
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 1 + index * 0.05 }}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      participant.id === participantId 
-                        ? 'bg-primary/10 border border-primary/50' 
-                        : index < 3 ? 'bg-amber-500/5' : 'bg-muted/30'
-                    }`}
+                    className={`flex items-center justify-between p-3 rounded-lg ${participant.id === participantId
+                      ? 'bg-primary/10 border border-primary/50'
+                      : index < 3 ? 'bg-amber-500/5' : 'bg-muted/30'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 flex justify-center">
@@ -1580,7 +1571,7 @@ export const BuzzerParticipantView = ({
             )}
 
             {gameState.status === 'buzzer-open' && !hasBuzzed && (
-              <motion.div 
+              <motion.div
                 className="text-center py-8"
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
@@ -1627,15 +1618,14 @@ export const BuzzerParticipantView = ({
                     </div>
                     <h2 className="text-2xl font-bold text-green-500">YOUR TURN!</h2>
                     <p className="text-muted-foreground">Answer the question now!</p>
-                    
+
                     {/* Timer */}
                     <div className="p-4 bg-muted/50 rounded-xl">
                       <Timer className={`w-8 h-8 mx-auto mb-2 ${gameState.timerRunning ? 'text-green-500 animate-pulse' : 'text-muted-foreground'}`} />
-                      <p className={`text-4xl font-mono font-bold ${
-                        localTimer <= 5 ? 'text-red-500' :
+                      <p className={`text-4xl font-mono font-bold ${localTimer <= 5 ? 'text-red-500' :
                         localTimer <= 10 ? 'text-amber-500' :
-                        'text-primary'
-                      }`}>
+                          'text-primary'
+                        }`}>
                         {localTimer}s
                       </p>
                     </div>
@@ -1674,11 +1664,10 @@ export const BuzzerParticipantView = ({
             {leaderboard.slice(0, 5).map((participant, index) => (
               <div
                 key={participant.id}
-                className={`flex items-center justify-between p-2 rounded-lg ${
-                  participant.id === participantId 
-                    ? 'bg-primary/10 border border-primary/50' 
-                    : 'bg-muted/30'
-                }`}
+                className={`flex items-center justify-between p-2 rounded-lg ${participant.id === participantId
+                  ? 'bg-primary/10 border border-primary/50'
+                  : 'bg-muted/30'
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <div className="w-6 flex justify-center">
@@ -1710,7 +1699,7 @@ interface BuzzerJoinScreenProps {
 export const BuzzerJoinScreen = ({ sessionCode, onJoin, isJoining }: BuzzerJoinScreenProps) => {
   const [nickname, setNickname] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState("😀");
-  
+
   const AVATARS = ["😀", "😎", "🤓", "🦊", "🐱", "🐶", "🦁", "🐼", "🐨", "🐸", "🐵", "🦄", "🐲", "🦋", "🐝", "🦉"];
 
   const handleJoin = () => {
@@ -1752,11 +1741,10 @@ export const BuzzerJoinScreen = ({ sessionCode, onJoin, isJoining }: BuzzerJoinS
                 <button
                   key={emoji}
                   onClick={() => setSelectedAvatar(emoji)}
-                  className={`text-2xl p-2 rounded-lg transition-all ${
-                    selectedAvatar === emoji
-                      ? 'bg-primary/20 ring-2 ring-primary'
-                      : 'bg-muted hover:bg-muted/80'
-                  }`}
+                  className={`text-2xl p-2 rounded-lg transition-all ${selectedAvatar === emoji
+                    ? 'bg-primary/20 ring-2 ring-primary'
+                    : 'bg-muted hover:bg-muted/80'
+                    }`}
                 >
                   {emoji}
                 </button>
@@ -1764,9 +1752,9 @@ export const BuzzerJoinScreen = ({ sessionCode, onJoin, isJoining }: BuzzerJoinS
             </div>
           </div>
 
-          <Button 
-            variant="gradient" 
-            className="w-full" 
+          <Button
+            variant="gradient"
+            className="w-full"
             size="lg"
             onClick={handleJoin}
             disabled={isJoining || !nickname.trim()}

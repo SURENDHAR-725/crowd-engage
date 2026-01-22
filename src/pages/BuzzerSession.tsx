@@ -22,10 +22,10 @@ const BuzzerSession = () => {
   const params = useParams<{ code?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  
+
   const sessionCode = params.code?.toUpperCase() || "";
   const isHost = searchParams.get("host") === "true";
-  
+
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [participantId, setParticipantId] = useState<string | null>(null);
@@ -43,13 +43,13 @@ const BuzzerSession = () => {
 
       try {
         setLoading(true);
-        
+
         const { data, error } = await supabase
           .from("sessions")
           .select("*")
           .eq("code", sessionCode)
           .maybeSingle();
-        
+
         if (error) throw error;
 
         if (!data) {
@@ -65,7 +65,7 @@ const BuzzerSession = () => {
           .from('participants')
           .select('*', { count: 'exact', head: true })
           .eq('session_id', data.id);
-        
+
         setParticipantCount(count || 0);
 
         // Check if participant exists in local storage
@@ -73,7 +73,7 @@ const BuzzerSession = () => {
           const storedParticipantId = localStorage.getItem(`buzzer_participant_${data.id}`);
           const storedNickname = localStorage.getItem(`buzzer_nickname_${data.id}`);
           const storedAvatar = localStorage.getItem(`buzzer_avatar_${data.id}`);
-          
+
           if (storedParticipantId && storedNickname) {
             // Verify participant still exists
             const { data: participant } = await supabase
@@ -81,17 +81,24 @@ const BuzzerSession = () => {
               .select('*')
               .eq('id', storedParticipantId)
               .single();
-            
+
             if (participant) {
               setParticipantId(storedParticipantId);
               setNickname(storedNickname);
               setAvatar(storedAvatar || "😀");
             } else {
-              // Participant was deleted, show join screen
-              setShowJoinScreen(true);
+              // Participant was deleted - only allow join if game hasn't started
+              if (data.status === 'draft') {
+                setShowJoinScreen(true);
+              }
+              // If game is active/ended and participant doesn't exist, they can't join
             }
           } else {
-            setShowJoinScreen(true);
+            // New participant - only allow join if game hasn't started
+            if (data.status === 'draft') {
+              setShowJoinScreen(true);
+            }
+            // If game is active/ended, new participants can't join
           }
         }
       } catch (error) {
@@ -122,7 +129,7 @@ const BuzzerSession = () => {
           .from('participants')
           .select('*', { count: 'exact', head: true })
           .eq('session_id', session.id);
-        
+
         setParticipantCount(count || 0);
       })
       .subscribe();
@@ -147,7 +154,7 @@ const BuzzerSession = () => {
         const newStatus = payload.new.status;
         if (newStatus && newStatus !== session.status) {
           setSession(prev => prev ? { ...prev, status: newStatus } : null);
-          
+
           if (newStatus === 'active') {
             toast.success("Game is starting!");
           } else if (newStatus === 'ended') {
@@ -164,7 +171,7 @@ const BuzzerSession = () => {
 
   const handleJoin = async (joinNickname: string, joinAvatar: string) => {
     if (!session) return;
-    
+
     setIsJoining(true);
     try {
       // Generate or retrieve anonymous_id for this session
@@ -174,7 +181,7 @@ const BuzzerSession = () => {
         anonymousId = `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         localStorage.setItem(`buzzer_anonymous_${session.id}`, anonymousId);
       }
-      
+
       // Create participant
       const { data: participant, error } = await supabase
         .from('participants')
@@ -187,19 +194,19 @@ const BuzzerSession = () => {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
-      
+
       // Store in local storage
       localStorage.setItem(`buzzer_participant_${session.id}`, participant.id);
       localStorage.setItem(`buzzer_nickname_${session.id}`, joinNickname);
       localStorage.setItem(`buzzer_avatar_${session.id}`, joinAvatar);
-      
+
       setParticipantId(participant.id);
       setNickname(joinNickname);
       setAvatar(joinAvatar);
       setShowJoinScreen(false);
-      
+
       toast.success("Joined the game!");
     } catch (error) {
       console.error('Error joining:', error);
@@ -256,8 +263,8 @@ const BuzzerSession = () => {
     return (
       <div className="min-h-screen bg-background p-4 md:p-8">
         <div className="max-w-2xl mx-auto">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="mb-6"
             onClick={() => navigate("/dashboard")}
           >
@@ -298,20 +305,20 @@ const BuzzerSession = () => {
               </div>
 
               {/* Launch Button */}
-              <Button 
-                variant="gradient" 
-                size="lg" 
+              <Button
+                variant="gradient"
+                size="lg"
                 className="w-full"
                 onClick={async () => {
                   // Update session status to active
                   await supabase
                     .from('sessions')
-                    .update({ 
+                    .update({
                       status: 'active',
                       started_at: new Date().toISOString()
                     })
                     .eq('id', session.id);
-                  
+
                   setSession(prev => prev ? { ...prev, status: 'active' } : null);
                   toast.success("Game launched!");
                 }}
@@ -396,6 +403,33 @@ const BuzzerSession = () => {
         nickname={nickname}
         avatar={avatar}
       />
+    );
+  }
+
+  // Game in progress - block new participants from joining
+  if (!isHost && !participantId && session.status === 'active') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full text-center">
+          <CardContent className="p-8">
+            <motion.div
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              className="w-20 h-20 mx-auto mb-4 rounded-full bg-amber-500/10 flex items-center justify-center"
+            >
+              <Bell className="w-10 h-10 text-amber-500" />
+            </motion.div>
+            <h1 className="text-2xl font-bold mb-2">Game In Progress</h1>
+            <p className="text-muted-foreground mb-6">
+              This buzzer game has already started. New participants cannot join
+              an active game session.
+            </p>
+            <Button variant="gradient" onClick={() => navigate("/")}>
+              Go Home
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

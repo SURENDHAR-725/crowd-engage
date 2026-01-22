@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/context/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute/ProtectedRoute";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { Loader2 } from "lucide-react";
 
@@ -48,9 +49,11 @@ const App = () => (
                   <Route path="/join" element={<JoinSession />} />
                   <Route path="/signin" element={<SignIn />} />
                   <Route path="/signup" element={<SignUp />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/create" element={<CreateSession />} />
-                  <Route path="/mocktest" element={<MockTest />} />
+                  <Route element={<ProtectedRoute />}>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/create" element={<CreateSession />} />
+                    <Route path="/mocktest" element={<MockTest />} />
+                  </Route>
                   <Route path="/session/:code" element={<LiveSession />} />
                   <Route path="/buzzer/:code" element={<BuzzerSession />} />
                   <Route path="*" element={<NotFound />} />

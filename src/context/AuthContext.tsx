@@ -83,13 +83,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
+      // Validate inputs before calling Supabase
+      if (!email || !email.includes('@')) {
+        toast.error('Please enter a valid email address');
+        return { error: { message: 'Invalid email' } as AuthError };
+      }
+
+      if (!password || password.length < 6) {
+        toast.error('Password must be at least 6 characters');
+        return { error: { message: 'Invalid password' } as AuthError };
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        toast.error(error.message);
+        // Provide user-friendly error messages
+        let errorMessage = error.message;
+
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password. Please check your credentials and try again.';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email address before signing in.';
+        } else if (error.message.includes('Too many requests')) {
+          errorMessage = 'Too many login attempts. Please wait a moment and try again.';
+        }
+
+        toast.error(errorMessage);
         return { error };
       }
 
@@ -97,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { error: null };
     } catch (error) {
       const authError = error as AuthError;
-      toast.error(authError.message);
+      toast.error('An unexpected error occurred. Please try again.');
       return { error: authError };
     }
   };
