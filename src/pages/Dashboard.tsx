@@ -2,10 +2,10 @@ import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { 
-  Plus, 
-  BarChart3, 
-  Timer, 
+import {
+  Plus,
+  BarChart3,
+  Timer,
   Zap,
   Users,
   ChevronRight,
@@ -53,34 +53,34 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const pollTypes = [
-  { 
-    id: "mcq", 
-    icon: BarChart3, 
-    title: "Multiple Choice", 
+  {
+    id: "mcq",
+    icon: BarChart3,
+    title: "Multiple Choice",
     description: "Classic poll with options",
     color: "text-primary",
     bg: "bg-primary/10",
   },
-  { 
-    id: "quiz", 
-    icon: Timer, 
-    title: "Timed Quiz", 
+  {
+    id: "quiz",
+    icon: Timer,
+    title: "AI Quiz",
     description: "Competitive with scoring",
     color: "text-spark-coral",
     bg: "bg-spark-coral/10",
   },
-  { 
-    id: "yesno", 
-    icon: ThumbsUp, 
-    title: "Yes/No Poll", 
+  {
+    id: "yesno",
+    icon: ThumbsUp,
+    title: "Yes/No Poll",
     description: "Quick binary decisions",
     color: "text-spark-green",
     bg: "bg-spark-green/10",
   },
-  { 
-    id: "mocktest", 
-    icon: BookOpen, 
-    title: "Mock Test", 
+  {
+    id: "mocktest",
+    icon: BookOpen,
+    title: "Mock Test",
     description: "AI-powered practice",
     color: "text-emerald-500",
     bg: "bg-emerald-500/10",
@@ -108,14 +108,14 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserEmail(user.email || "");
-        
+
         // Fetch user profile data from users table
         const { data: profile } = await supabase
           .from('users')
           .select('full_name')
           .eq('id', user.id)
           .single();
-        
+
         if (profile?.full_name) {
           setUserName(profile.full_name);
         } else if (user.user_metadata?.full_name) {
@@ -125,7 +125,7 @@ const Dashboard = () => {
         }
       }
     };
-    
+
     fetchUserData();
   }, []);
 
@@ -172,19 +172,19 @@ const Dashboard = () => {
     }
 
     setIsJoining(true);
-    
+
     try {
       const session = await sessionService.getSessionByCode(joinCode);
-      
+
       if (session) {
         toast.success("Joining session...");
         setJoinDialogOpen(false);
-        
+
         // Check if it's a buzzer game
-        const isBuzzerGame = session.type === 'minigame' || 
-          (session.settings && typeof session.settings === 'object' && 
-           (session.settings as { is_buzzer_game?: boolean }).is_buzzer_game === true);
-        
+        const isBuzzerGame = session.type === 'minigame' ||
+          (session.settings && typeof session.settings === 'object' &&
+            (session.settings as { is_buzzer_game?: boolean }).is_buzzer_game === true);
+
         if (isBuzzerGame) {
           navigate(`/buzzer/${joinCode.toUpperCase()}`);
         } else {
@@ -217,7 +217,7 @@ const Dashboard = () => {
   // Filter and search sessions
   const filteredSessions = useMemo(() => {
     return sessions.filter(session => {
-      const matchesSearch = 
+      const matchesSearch =
         session.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         session.code.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === 'all' || session.status === statusFilter;
@@ -238,15 +238,15 @@ const Dashboard = () => {
     }).length,
   }), [sessions]);
 
-  const displayedSessions = (showAll || searchQuery || statusFilter !== 'all' || typeFilter !== 'all') 
-    ? filteredSessions 
+  const displayedSessions = (showAll || searchQuery || statusFilter !== 'all' || typeFilter !== 'all')
+    ? filteredSessions
     : filteredSessions.slice(0, 5);
   const hasMoreSessions = filteredSessions.length > 5;
 
   if (sessionsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           className="flex flex-col items-center gap-4"
@@ -266,7 +266,7 @@ const Dashboard = () => {
       <aside className="fixed left-0 top-0 h-full w-64 bg-card border-r border-border p-6 hidden lg:flex flex-col">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 mb-8">
-          <motion.div 
+          <motion.div
             className="w-10 h-10 rounded-xl btn-gradient flex items-center justify-center"
             whileHover={{ scale: 1.05, rotate: 5 }}
           >
@@ -344,7 +344,7 @@ const Dashboard = () => {
                   className="w-64 pl-9"
                 />
               </div>
-              
+
               {/* Join Session Dialog */}
               <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
                 <DialogTrigger asChild>
@@ -372,9 +372,9 @@ const Dashboard = () => {
                       onKeyPress={(e) => e.key === 'Enter' && handleJoinSession()}
                       maxLength={8}
                     />
-                    <Button 
-                      variant="gradient" 
-                      className="w-full" 
+                    <Button
+                      variant="gradient"
+                      className="w-full"
                       size="lg"
                       onClick={handleJoinSession}
                       disabled={isJoining || joinCode.length < 4}
@@ -453,8 +453,8 @@ const Dashboard = () => {
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <Card 
-                    variant="glass" 
+                  <Card
+                    variant="glass"
                     className="cursor-pointer card-hover h-full"
                     onClick={() => navigate(`/create?type=${type.id}`)}
                   >
@@ -502,8 +502,8 @@ const Dashboard = () => {
                 </DropdownMenu>
 
                 {hasMoreSessions && !searchQuery && statusFilter === 'all' && typeFilter === 'all' && (
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="sm"
                     onClick={() => setShowAll(!showAll)}
                   >
@@ -524,7 +524,7 @@ const Dashboard = () => {
                 >
                   <Card variant="default">
                     <CardContent className="p-12 text-center">
-                      <motion.div 
+                      <motion.div
                         className="w-20 h-20 rounded-3xl bg-muted mx-auto mb-4 flex items-center justify-center"
                         initial={{ scale: 0.8 }}
                         animate={{ scale: 1 }}
@@ -533,8 +533,8 @@ const Dashboard = () => {
                         <BarChart3 className="w-10 h-10 text-muted-foreground" />
                       </motion.div>
                       <h3 className="font-semibold text-lg mb-2">
-                        {searchQuery || statusFilter !== 'all' || typeFilter !== 'all' 
-                          ? 'No matching sessions' 
+                        {searchQuery || statusFilter !== 'all' || typeFilter !== 'all'
+                          ? 'No matching sessions'
                           : 'No sessions yet'}
                       </h3>
                       <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
@@ -549,8 +549,8 @@ const Dashboard = () => {
                         </Button>
                       )}
                       {(searchQuery || statusFilter !== 'all' || typeFilter !== 'all') && (
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => {
                             setSearchQuery('');
                             setStatusFilter('all');
@@ -575,12 +575,12 @@ const Dashboard = () => {
                   {displayedSessions.map((session, i) => {
                     const typeConfig = getTypeConfig(session.type);
                     const TypeIcon = typeConfig.icon;
-                    
+
                     // Check if it's a buzzer game
-                    const isBuzzerGame = session.type === 'minigame' || 
-                      (session.settings && typeof session.settings === 'object' && 
-                       (session.settings as { is_buzzer_game?: boolean }).is_buzzer_game === true);
-                    
+                    const isBuzzerGame = session.type === 'minigame' ||
+                      (session.settings && typeof session.settings === 'object' &&
+                        (session.settings as { is_buzzer_game?: boolean }).is_buzzer_game === true);
+
                     return (
                       <motion.div
                         key={session.id}
@@ -626,9 +626,9 @@ const Dashboard = () => {
                                 <Copy className="w-4 h-4" />
                               </Button>
                               {session.status === "active" && (
-                                <Button 
-                                  variant="gradient" 
-                                  size="sm" 
+                                <Button
+                                  variant="gradient"
+                                  size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     navigate(`/session/${session.code}`);
@@ -639,9 +639,9 @@ const Dashboard = () => {
                                 </Button>
                               )}
                               {session.status === "draft" && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   onClick={(e) => handleLaunchSession(session.id, e)}
                                 >
                                   <Play className="w-4 h-4 mr-1" />
@@ -649,16 +649,16 @@ const Dashboard = () => {
                                 </Button>
                               )}
                               {session.status === "ended" && (
-                                <Button 
-                                  variant="ghost" 
+                                <Button
+                                  variant="ghost"
                                   size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     // Check if it's a buzzer game
-                                    const isBuzzerGame = session.type === 'minigame' || 
-                                      (session.settings && typeof session.settings === 'object' && 
-                                       (session.settings as { is_buzzer_game?: boolean }).is_buzzer_game === true);
-                                    
+                                    const isBuzzerGame = session.type === 'minigame' ||
+                                      (session.settings && typeof session.settings === 'object' &&
+                                        (session.settings as { is_buzzer_game?: boolean }).is_buzzer_game === true);
+
                                     if (isBuzzerGame) {
                                       navigate(`/buzzer/${session.code}?host=true`);
                                     } else {
