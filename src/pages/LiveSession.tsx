@@ -520,14 +520,14 @@ const LiveSession = () => {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Choose Avatar</label>
-                <div className="grid grid-cols-6 gap-2">
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                   {AVATARS.map((avatar) => (
                     <motion.button
                       key={avatar}
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => setSelectedAvatar(avatar)}
-                      className={`w-12 h-12 text-2xl rounded-xl border-2 transition-all ${
+                      className={`w-10 h-10 sm:w-12 sm:h-12 text-xl sm:text-2xl rounded-xl border-2 transition-all ${
                         selectedAvatar === avatar
                           ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50"

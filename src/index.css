@@ -212,3 +212,101 @@
 ::-webkit-scrollbar-thumb:hover {
     @apply bg-muted-foreground/30;
 }
+
+
+/* Mobile Responsive Styles */
+
+@layer components {
+    /* Mobile-first responsive utilities */
+    .mobile-padding {
+        @apply px-3 py-2;
+    }
+    .mobile-text-sm {
+        @apply text-sm;
+    }
+    .mobile-gap {
+        @apply gap-2;
+    }
+    /* Responsive grid for quiz options */
+    .quiz-options-grid {
+        @apply grid gap-3;
+        grid-template-columns: 1fr;
+    }
+    /* Responsive card padding */
+    .responsive-card {
+        @apply p-3 sm: p-4 md: p-6;
+    }
+    /* Responsive text sizing */
+    .responsive-heading {
+        @apply text-lg sm: text-xl md: text-2xl lg: text-3xl;
+    }
+    .responsive-subheading {
+        @apply text-base sm: text-lg md: text-xl;
+    }
+    .responsive-body {
+        @apply text-sm sm: text-base;
+    }
+}
+
+
+/* Media Queries for Mobile Responsiveness */
+
+@media (max-width: 640px) {
+    /* Global mobile adjustments */
+    .container {
+        @apply px-3;
+    }
+    /* Reduce font sizes on mobile */
+    h1 {
+        @apply text-2xl;
+    }
+    h2 {
+        @apply text-xl;
+    }
+    h3 {
+        @apply text-lg;
+    }
+    /* Mobile card adjustments */
+    .card-content {
+        @apply p-3;
+    }
+    /* Mobile button adjustments */
+    button {
+        @apply text-sm;
+    }
+    /* Mobile input adjustments */
+    input {
+        @apply text-base;
+    }
+    /* Hide overflow on mobile to prevent horizontal scroll */
+    body {
+        overflow-x: hidden;
+    }
+    /* Mobile grid adjustments */
+    .grid-cols-2 {
+        grid-template-columns: 1fr;
+    }
+    .grid-cols-3 {
+        grid-template-columns: 1fr;
+    }
+    .grid-cols-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+    /* Tablet adjustments */
+    .container {
+        @apply px-4;
+    }
+    .grid-cols-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 769px) {
+    /* Desktop - enable 2 column grid for quiz options */
+    .quiz-options-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

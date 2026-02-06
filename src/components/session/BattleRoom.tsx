@@ -88,21 +88,21 @@ export const BattleRoom = ({
   const getTeamColor = (color: string) => teamColors[color] || teamColors.blue;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       {/* Battle Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Swords className="w-6 h-6 text-primary" />
-          <span className="font-display font-bold text-lg">Battle Mode</span>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Swords className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+          <span className="font-display font-bold text-base sm:text-lg">Battle Mode</span>
         </div>
         <div className="flex items-center gap-2">
           <Flag className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm">Round {roundNumber}/{totalRounds}</span>
+          <span className="text-xs sm:text-sm">Round {roundNumber}/{totalRounds}</span>
         </div>
       </div>
 
       {/* Team Scores */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
         {sortedTeams.map((team, index) => {
           const colors = getTeamColor(team.color);
           const isUserTeam = userTeam?.id === team.id;
@@ -114,7 +114,7 @@ export const BattleRoom = ({
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className={`relative p-4 rounded-xl border-2 ${colors.bg} ${colors.border} ${
+              className={`relative p-3 sm:p-4 rounded-xl border-2 ${colors.bg} ${colors.border} ${
                 isUserTeam ? "ring-2 ring-primary ring-offset-2" : ""
               }`}
             >
@@ -124,17 +124,17 @@ export const BattleRoom = ({
                   animate={{ scale: 1 }}
                   className="absolute -top-2 -right-2"
                 >
-                  <Crown className="w-6 h-6 text-amber-500 fill-amber-500" />
+                  <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 fill-amber-500" />
                 </motion.div>
               )}
-              <div className="flex items-center gap-3">
-                <Shield className={`w-8 h-8 ${colors.text}`} />
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Shield className={`w-6 h-6 sm:w-8 sm:h-8 ${colors.text}`} />
                 <div>
-                  <p className="font-bold">{team.name}</p>
+                  <p className="font-bold text-sm sm:text-base">{team.name}</p>
                   <p className="text-xs text-muted-foreground">{team.memberIds.length} members</p>
                 </div>
               </div>
-              <div className={`text-3xl font-display font-bold mt-2 ${colors.text}`}>
+              <div className={`text-2xl sm:text-3xl font-display font-bold mt-2 ${colors.text}`}>
                 {team.score}
               </div>
               {isUserTeam && (
@@ -149,7 +149,7 @@ export const BattleRoom = ({
 
       {/* Timer */}
       <div className="relative">
-        <motion.div className="h-3 rounded-full bg-muted overflow-hidden">
+        <motion.div className="h-2 sm:h-3 rounded-full bg-muted overflow-hidden">
           <motion.div
             initial={{ width: "100%" }}
             animate={{ width: `${(timeRemaining / timeLimit) * 100}%` }}
@@ -162,22 +162,22 @@ export const BattleRoom = ({
             }`}
           />
         </motion.div>
-        <div className="flex items-center justify-center gap-2 mt-2 text-xl font-bold">
-          <Zap className="w-5 h-5 text-amber-500" />
+        <div className="flex items-center justify-center gap-2 mt-2 text-lg sm:text-xl font-bold">
+          <Zap className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
           {timeRemaining}s
         </div>
       </div>
 
       {/* Question */}
       <Card variant="elevated">
-        <CardContent className="p-6 text-center">
-          <Target className="w-8 h-8 mx-auto mb-3 text-primary" />
-          <h1 className="text-xl md:text-2xl font-display font-bold">{currentQuestion.text}</h1>
+        <CardContent className="p-4 sm:p-6 text-center">
+          <Target className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 sm:mb-3 text-primary" />
+          <h1 className="text-lg sm:text-xl md:text-2xl font-display font-bold">{currentQuestion.text}</h1>
         </CardContent>
       </Card>
 
       {/* Options */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
         {currentQuestion.options.map((option, index) => {
           const isSelected = selectedAnswer === option.id;
           const isCorrectOption = correctAnswer === option.id || option.isCorrect;
@@ -210,11 +210,11 @@ export const BattleRoom = ({
               transition={{ delay: index * 0.1 }}
               onClick={() => handleAnswer(option.id)}
               disabled={hasAnswered || timeRemaining <= 0}
-              className={`relative p-6 rounded-xl border-4 ${baseColor} ${borderColor} ${opacity} text-white font-bold transition-all ${
+              className={`relative p-4 sm:p-6 rounded-xl border-4 ${baseColor} ${borderColor} ${opacity} text-white font-bold transition-all ${
                 hasAnswered || timeRemaining <= 0 ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-105'
               }`}
             >
-              <span className="text-lg">{option.text}</span>
+              <span className="text-sm sm:text-lg">{option.text}</span>
               {isSelected && !showResult && (
                 <motion.div
                   initial={{ scale: 0 }}
@@ -265,14 +265,14 @@ export const TeamSelector = ({
   const getColors = (color: string) => teamColors[color] || teamColors.blue;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       <div className="text-center">
-        <Swords className="w-12 h-12 mx-auto mb-4 text-primary" />
-        <h2 className="text-2xl font-display font-bold">Choose Your Team</h2>
-        <p className="text-muted-foreground mt-2">Join a team to compete in this battle!</p>
+        <Swords className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4 text-primary" />
+        <h2 className="text-xl sm:text-2xl font-display font-bold">Choose Your Team</h2>
+        <p className="text-sm sm:text-base text-muted-foreground mt-2">Join a team to compete in this battle!</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {teams.map((team) => {
           const colors = getColors(team.color);
           const isSelected = selectedTeam === team.id;
@@ -283,13 +283,13 @@ export const TeamSelector = ({
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => onSelectTeam(team.id)}
-              className={`p-6 rounded-2xl border-2 transition-all ${colors.bg} ${
+              className={`p-4 sm:p-6 rounded-2xl border-2 transition-all ${colors.bg} ${
                 isSelected ? `${colors.border} ring-2 ring-offset-2` : "border-border hover:border-primary/50"
               }`}
             >
-              <Shield className={`w-12 h-12 mx-auto mb-3 ${colors.text} ${isSelected ? colors.fill : ''}`} />
-              <p className={`font-bold text-lg ${colors.text}`}>{team.name}</p>
-              <p className="text-sm text-muted-foreground mt-1">{team.memberIds.length} members</p>
+              <Shield className={`w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 ${colors.text} ${isSelected ? colors.fill : ''}`} />
+              <p className={`font-bold text-base sm:text-lg ${colors.text}`}>{team.name}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">{team.memberIds.length} members</p>
             </motion.button>
           );
         })}
@@ -324,7 +324,7 @@ export const BattleResults = ({
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="space-y-6"
+      className="space-y-4 sm:space-y-6 px-2 sm:px-0"
     >
       <div className="text-center">
         <motion.div
@@ -332,44 +332,44 @@ export const BattleResults = ({
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: "spring", stiffness: 200 }}
         >
-          <Trophy className={`w-20 h-20 mx-auto mb-4 ${isUserWinner ? 'text-amber-500' : 'text-muted-foreground'}`} />
+          <Trophy className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 ${isUserWinner ? 'text-amber-500' : 'text-muted-foreground'}`} />
         </motion.div>
-        <h2 className="text-3xl font-display font-bold">
+        <h2 className="text-2xl sm:text-3xl font-display font-bold">
           {isUserWinner ? "🎉 Victory!" : "Battle Complete"}
         </h2>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-sm sm:text-base text-muted-foreground mt-2">
           {winningTeam?.name} wins with {winningTeam?.score} points!
         </p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2 sm:space-y-3">
         {sortedTeams.map((team, index) => (
           <motion.div
             key={team.id}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
-            className={`flex items-center gap-4 p-4 rounded-xl ${
+            className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl ${
               index === 0 ? "bg-amber-500/10 border border-amber-500" : "bg-muted/50 border border-border"
             }`}
           >
-            <div className="w-8 flex justify-center">
+            <div className="w-6 sm:w-8 flex justify-center">
               {index === 0 ? (
-                <Crown className="w-6 h-6 text-amber-500" />
+                <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500" />
               ) : index === 1 ? (
-                <Medal className="w-6 h-6 text-gray-400" />
+                <Medal className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
               ) : index === 2 ? (
-                <Medal className="w-6 h-6 text-amber-700" />
+                <Medal className="w-5 h-5 sm:w-6 sm:h-6 text-amber-700" />
               ) : (
-                <span className="font-bold text-muted-foreground">{index + 1}</span>
+                <span className="font-bold text-muted-foreground text-sm sm:text-base">{index + 1}</span>
               )}
             </div>
-            <Shield className={`w-8 h-8 text-${team.color}-500`} />
-            <div className="flex-1">
-              <p className="font-bold">{team.name}</p>
+            <Shield className={`w-6 h-6 sm:w-8 sm:h-8 text-${team.color}-500`} />
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm sm:text-base truncate">{team.name}</p>
               <p className="text-xs text-muted-foreground">{team.memberIds.length} members</p>
             </div>
-            <div className="text-2xl font-display font-bold">{team.score}</div>
+            <div className="text-xl sm:text-2xl font-display font-bold">{team.score}</div>
           </motion.div>
         ))}
       </div>

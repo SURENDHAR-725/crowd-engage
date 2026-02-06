@@ -90,13 +90,13 @@ export const LiveQuiz = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
       {/* Header with timer and score */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Question</span>
-            <span className="font-bold">{questionNumber}/{totalQuestions}</span>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <span className="text-xs sm:text-sm text-muted-foreground">Question</span>
+            <span className="font-bold text-sm sm:text-base">{questionNumber}/{totalQuestions}</span>
           </div>
           {currentStreak >= 2 && (
             <motion.div
@@ -104,15 +104,15 @@ export const LiveQuiz = ({
               animate={{ scale: 1 }}
               className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/10 text-amber-500"
             >
-              <Zap className="w-4 h-4" />
-              <span className="text-sm font-bold">{currentStreak} streak!</span>
+              <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="text-xs sm:text-sm font-bold">{currentStreak} streak!</span>
             </motion.div>
           )}
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-primary" />
-            <span className="font-bold">{currentScore}</span>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+            <span className="font-bold text-sm sm:text-base">{currentScore}</span>
           </div>
         </div>
       </div>
@@ -120,7 +120,7 @@ export const LiveQuiz = ({
       {/* Timer */}
       <div className="relative">
         <motion.div
-          className="h-2 rounded-full bg-muted overflow-hidden"
+          className="h-1.5 sm:h-2 rounded-full bg-muted overflow-hidden"
         >
           <motion.div
             initial={{ width: "100%" }}
@@ -136,20 +136,20 @@ export const LiveQuiz = ({
           />
         </motion.div>
         <div className={`absolute -top-1 right-0 flex items-center gap-1 ${getTimerColor()}`}>
-          <Timer className="w-4 h-4" />
-          <span className="font-bold text-lg">{timeRemaining}s</span>
+          <Timer className="w-3 h-3 sm:w-4 sm:h-4" />
+          <span className="font-bold text-base sm:text-lg">{timeRemaining}s</span>
         </div>
       </div>
 
       {/* Question */}
       <Card variant="elevated">
-        <CardContent className="p-8 text-center">
-          <h1 className="text-2xl md:text-3xl font-display font-bold">{question}</h1>
+        <CardContent className="p-4 sm:p-6 md:p-8 text-center">
+          <h1 className="text-lg sm:text-2xl md:text-3xl font-display font-bold">{question}</h1>
         </CardContent>
       </Card>
 
       {/* Options */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
         <AnimatePresence mode="wait">
           {options.map((option, index) => {
             const isSelected = selectedAnswer === option.id;
@@ -164,11 +164,11 @@ export const LiveQuiz = ({
               if (isCorrectOption) {
                 bgColor = "bg-spark-green/10";
                 borderColor = "border-spark-green";
-                icon = <CheckCircle2 className="w-6 h-6 text-spark-green" />;
+                icon = <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-spark-green" />;
               } else if (isSelected && !isCorrectOption) {
                 bgColor = "bg-spark-coral/10";
                 borderColor = "border-spark-coral";
-                icon = <XCircle className="w-6 h-6 text-spark-coral" />;
+                icon = <XCircle className="w-5 h-5 sm:w-6 sm:h-6 text-spark-coral" />;
               }
             } else if (isSelected) {
               bgColor = "bg-primary/10";
@@ -191,18 +191,18 @@ export const LiveQuiz = ({
                 transition={{ delay: index * 0.1 }}
                 onClick={() => handleAnswer(option.id)}
                 disabled={hasAnswered || timeRemaining <= 0}
-                className={`relative p-6 rounded-xl border-2 text-left transition-all ${borderColor} ${bgColor} ${
+                className={`relative p-4 sm:p-6 rounded-xl border-2 text-left transition-all ${borderColor} ${bgColor} ${
                   hasAnswered || timeRemaining <= 0 ? 'cursor-not-allowed' : 'cursor-pointer'
                 }`}
               >
                 <div className={`absolute inset-0 rounded-xl bg-gradient-to-br ${optionColors[index % 4]} opacity-50`} />
-                <div className="relative flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-bold shrink-0 ${
+                <div className="relative flex items-center gap-3 sm:gap-4">
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-base sm:text-lg font-bold shrink-0 ${
                     isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                   }`}>
                     {String.fromCharCode(65 + index)}
                   </div>
-                  <span className="font-medium flex-1">{option.text}</span>
+                  <span className="font-medium flex-1 text-sm sm:text-base">{option.text}</span>
                   {icon && <div className="shrink-0">{icon}</div>}
                 </div>
               </motion.button>
@@ -216,10 +216,10 @@ export const LiveQuiz = ({
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="text-center p-4 rounded-xl bg-spark-coral/10 border border-spark-coral"
+          className="text-center p-3 sm:p-4 rounded-xl bg-spark-coral/10 border border-spark-coral"
         >
-          <XCircle className="w-8 h-8 mx-auto mb-2 text-spark-coral" />
-          <p className="font-bold text-spark-coral">Time's up!</p>
+          <XCircle className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 text-spark-coral" />
+          <p className="font-bold text-sm sm:text-base text-spark-coral">Time's up!</p>
         </motion.div>
       )}
 
@@ -227,7 +227,7 @@ export const LiveQuiz = ({
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className={`text-center p-4 rounded-xl ${
+          className={`text-center p-3 sm:p-4 rounded-xl ${
             selectedAnswer === correctAnswer 
               ? "bg-spark-green/10 border border-spark-green" 
               : "bg-spark-coral/10 border border-spark-coral"
@@ -235,14 +235,14 @@ export const LiveQuiz = ({
         >
           {selectedAnswer === correctAnswer ? (
             <>
-              <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-spark-green" />
-              <p className="font-bold text-spark-green">Correct! +{100 + timeBonus} points</p>
-              <p className="text-sm text-muted-foreground">Time bonus: +{timeBonus}</p>
+              <CheckCircle2 className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 text-spark-green" />
+              <p className="font-bold text-sm sm:text-base text-spark-green">Correct! +{100 + timeBonus} points</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Time bonus: +{timeBonus}</p>
             </>
           ) : (
             <>
-              <XCircle className="w-8 h-8 mx-auto mb-2 text-spark-coral" />
-              <p className="font-bold text-spark-coral">Incorrect</p>
+              <XCircle className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 text-spark-coral" />
+              <p className="font-bold text-sm sm:text-base text-spark-coral">Incorrect</p>
             </>
           )}
         </motion.div>
@@ -301,8 +301,8 @@ export const QuizLeaderboard = ({ entries, showFull = false }: {
   return (
     <Card variant="glass">
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Trophy className="w-5 h-5 text-primary" />
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+          <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
           Leaderboard
         </CardTitle>
       </CardHeader>
@@ -313,21 +313,21 @@ export const QuizLeaderboard = ({ entries, showFull = false }: {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.05 }}
-            className={`flex items-center gap-3 p-3 rounded-lg ${
+            className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg ${
               entry.rank <= 3 ? "bg-primary/5" : "bg-muted/50"
             }`}
           >
-            <div className="w-8 flex justify-center">
+            <div className="w-6 sm:w-8 flex justify-center">
               {getRankIcon(entry.rank)}
             </div>
-            <div className="flex-1">
-              <p className="font-medium">{entry.nickname || `Player ${entry.rank}`}</p>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-sm sm:text-base truncate">{entry.nickname || `Player ${entry.rank}`}</p>
               <p className="text-xs text-muted-foreground">
                 {entry.correctAnswers} correct • {entry.averageTime.toFixed(1)}s avg
               </p>
             </div>
             <div className="text-right">
-              <p className="font-bold text-lg">{entry.score}</p>
+              <p className="font-bold text-base sm:text-lg">{entry.score}</p>
               {entry.streak && entry.streak >= 2 && (
                 <div className="flex items-center gap-1 text-xs text-amber-500">
                   <Zap className="w-3 h-3" />

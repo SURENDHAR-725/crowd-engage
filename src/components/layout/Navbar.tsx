@@ -154,7 +154,7 @@ export function Navbar() {
               >
                 About
               </Link>
-              
+
               {/* Mobile Theme Toggle */}
               <div className="flex items-center justify-between py-3 border-t border-border mt-2">
                 <div className="flex items-center gap-3">

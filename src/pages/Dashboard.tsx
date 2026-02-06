@@ -27,8 +27,11 @@ import {
   Gamepad2,
   RefreshCw,
   UserPlus,
-  Bell
+  Bell,
+  Sun,
+  Moon
 } from "lucide-react";
+import { useTheme } from "@/context/ThemeContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -102,6 +105,7 @@ const Dashboard = () => {
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const navigate = useNavigate();
   const { sessions, loading: sessionsLoading, updateSessionStatus, deleteSession } = useSessions();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -318,39 +322,53 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="lg:ml-64 min-h-screen">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border px-6 py-4">
-          <div className="flex items-center justify-between">
+        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border px-3 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="lg:hidden">
               <Link to="/" className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg btn-gradient flex items-center justify-center">
                   <Zap className="w-4 h-4 text-primary-foreground" />
                 </div>
-                <span className="font-display text-lg font-bold text-gradient">
+                <span className="font-display text-base sm:text-lg font-bold text-gradient">
                   CrowdSpark
                 </span>
               </Link>
             </div>
             <div className="hidden lg:block">
-              <h1 className="text-2xl font-display font-bold">Sessions</h1>
-              <p className="text-sm text-muted-foreground">Manage your interactive sessions</p>
+              <h1 className="text-xl sm:text-2xl font-display font-bold">Sessions</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">Manage your interactive sessions</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
               <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search sessions..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64 pl-9"
+                  className="w-48 lg:w-64 pl-9"
                 />
               </div>
+
+              {/* Theme Toggle Button */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleTheme}
+                className="rounded-full"
+              >
+                {theme === "light" ? (
+                  <Moon className="w-4 h-4" />
+                ) : (
+                  <Sun className="w-4 h-4" />
+                )}
+              </Button>
 
               {/* Join Session Dialog */}
               <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Join Session
+                  <Button variant="outline" size="sm" className="sm:size-default">
+                    <UserPlus className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Join Session</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
@@ -395,18 +413,18 @@ const Dashboard = () => {
                 </DialogContent>
               </Dialog>
 
-              <Button variant="gradient" onClick={() => navigate('/create')}>
-                <Plus className="w-4 h-4 mr-2" />
-                New Session
+              <Button variant="gradient" size="sm" className="sm:size-default" onClick={() => navigate('/create')}>
+                <Plus className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">New Session</span>
               </Button>
             </div>
           </div>
         </header>
 
-        <div className="p-6 space-y-8">
+        <div className="p-3 sm:p-6 space-y-6 sm:space-y-8">
           {/* Stats Cards */}
           {sessions.length > 0 && (
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {[
                 { label: 'Total Sessions', value: stats.total, icon: BarChart3, color: 'text-primary' },
                 { label: 'Active Now', value: stats.active, icon: Play, color: 'text-spark-green' },
@@ -420,14 +438,14 @@ const Dashboard = () => {
                   transition={{ delay: i * 0.1 }}
                 >
                   <Card className="border-border/50">
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground">{stat.label}</p>
-                          <p className="text-2xl font-bold">{stat.value}</p>
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm text-muted-foreground truncate">{stat.label}</p>
+                          <p className="text-xl sm:text-2xl font-bold">{stat.value}</p>
                         </div>
-                        <div className={`w-10 h-10 rounded-xl bg-muted flex items-center justify-center`}>
-                          <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                        <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-muted flex items-center justify-center shrink-0`}>
+                          <stat.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${stat.color}`} />
                         </div>
                       </div>
                     </CardContent>
@@ -439,11 +457,11 @@ const Dashboard = () => {
 
           {/* Quick Create */}
           <section>
-            <h2 className="text-lg font-display font-semibold mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
+            <h2 className="text-base sm:text-lg font-display font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
               Quick Create
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               {pollTypes.map((type, i) => (
                 <motion.div
                   key={type.id}
@@ -458,13 +476,13 @@ const Dashboard = () => {
                     className="cursor-pointer card-hover h-full"
                     onClick={() => navigate(`/create?type=${type.id}`)}
                   >
-                    <CardContent className="p-5 flex flex-col items-center text-center gap-3">
-                      <div className={`w-14 h-14 rounded-2xl ${type.bg} flex items-center justify-center`}>
-                        <type.icon className={`w-7 h-7 ${type.color}`} />
+                    <CardContent className="p-3 sm:p-5 flex flex-col items-center text-center gap-2 sm:gap-3">
+                      <div className={`w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl ${type.bg} flex items-center justify-center`}>
+                        <type.icon className={`w-5 h-5 sm:w-7 sm:h-7 ${type.color}`} />
                       </div>
                       <div>
-                        <h3 className="font-semibold">{type.title}</h3>
-                        <p className="text-xs text-muted-foreground mt-1">{type.description}</p>
+                        <h3 className="font-semibold text-sm sm:text-base">{type.title}</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1 hidden sm:block">{type.description}</p>
                       </div>
                     </CardContent>
                   </Card>

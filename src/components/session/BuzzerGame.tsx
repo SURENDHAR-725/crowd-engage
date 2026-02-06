@@ -1711,18 +1711,18 @@ export const BuzzerJoinScreen = ({ sessionCode, onJoin, isJoining }: BuzzerJoinS
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-3 sm:p-4">
       <Card className="max-w-md w-full">
-        <CardHeader className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
-            <Bell className="w-8 h-8 text-primary" />
+        <CardHeader className="text-center px-4 sm:px-6 py-4 sm:py-6">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <Bell className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Join Buzzer Game</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl">Join Buzzer Game</CardTitle>
           <CardDescription>
             Session Code: <span className="font-mono font-bold text-primary">{sessionCode}</span>
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4 sm:space-y-6 px-4 sm:px-6">
           <div className="space-y-2">
             <label className="text-sm font-medium">Your Name</label>
             <Input
@@ -1736,12 +1736,12 @@ export const BuzzerJoinScreen = ({ sessionCode, onJoin, isJoining }: BuzzerJoinS
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Choose Avatar</label>
-            <div className="grid grid-cols-8 gap-2">
+            <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
               {AVATARS.map((emoji) => (
                 <button
                   key={emoji}
                   onClick={() => setSelectedAvatar(emoji)}
-                  className={`text-2xl p-2 rounded-lg transition-all ${selectedAvatar === emoji
+                  className={`text-xl sm:text-2xl p-1.5 sm:p-2 rounded-lg transition-all ${selectedAvatar === emoji
                     ? 'bg-primary/20 ring-2 ring-primary'
                     : 'bg-muted hover:bg-muted/80'
                     }`}

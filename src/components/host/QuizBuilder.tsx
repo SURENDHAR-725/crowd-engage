@@ -167,12 +167,12 @@ export const QuizBuilder = ({ questions, onChange, sessionType }: QuizBuilderPro
   const activeQuestion = questions[activeIndex];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
       {/* Question List Sidebar */}
-      <Card className="lg:col-span-1">
-        <CardHeader className="pb-3">
+      <Card className="lg:col-span-1 order-2 lg:order-1">
+        <CardHeader className="pb-3 px-3 sm:px-6">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Questions ({questions.length})</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Questions ({questions.length})</CardTitle>
             <div className="flex gap-1">
               <Button
                 variant="ghost"
@@ -192,7 +192,7 @@ export const QuizBuilder = ({ questions, onChange, sessionType }: QuizBuilderPro
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-2 max-h-[400px] overflow-y-auto">
+        <CardContent className="space-y-2 max-h-[300px] sm:max-h-[400px] overflow-y-auto px-3 sm:px-6">
           <AnimatePresence>
             {questions.map((q, index) => (
               <motion.div
@@ -255,14 +255,14 @@ export const QuizBuilder = ({ questions, onChange, sessionType }: QuizBuilderPro
       </Card>
 
       {/* Active Question Editor */}
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
+      <Card className="lg:col-span-2 order-1 lg:order-2">
+        <CardHeader className="px-3 sm:px-6">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             Question {activeIndex + 1}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4 sm:space-y-6 px-3 sm:px-6">
           {/* Question Text */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Question</label>
@@ -275,15 +275,16 @@ export const QuizBuilder = ({ questions, onChange, sessionType }: QuizBuilderPro
           </div>
 
           {/* Timer & Points */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Time Limit</label>
-              <div className="flex gap-2 flex-wrap">
+              <label className="text-xs sm:text-sm font-medium">Time Limit</label>
+              <div className="flex gap-1.5 sm:gap-2 flex-wrap">
                 {[10, 20, 30, 45, 60].map((time) => (
                   <Button
                     key={time}
                     variant={activeQuestion?.timeLimit === time ? "gradient" : "outline"}
                     size="sm"
+                    className="text-xs sm:text-sm px-2 sm:px-3"
                     onClick={() => updateQuestion(activeIndex, { timeLimit: time })}
                   >
                     {time}s
@@ -292,8 +293,8 @@ export const QuizBuilder = ({ questions, onChange, sessionType }: QuizBuilderPro
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Points</label>
-              <div className="flex gap-2 flex-wrap">
+              <label className="text-xs sm:text-sm font-medium">Points</label>
+              <div className="flex gap-1.5 sm:gap-2 flex-wrap">
                 {[50, 100, 200, 500].map((pts) => (
                   <Button
                     key={pts}
@@ -311,14 +312,15 @@ export const QuizBuilder = ({ questions, onChange, sessionType }: QuizBuilderPro
           {/* Options */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Answer Options</label>
+              <label className="text-xs sm:text-sm font-medium">Answer Options</label>
               {(activeQuestion?.options?.length || 0) < 6 && (
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="text-xs sm:text-sm"
                   onClick={() => addOption(activeIndex)}
                 >
-                  <Plus className="w-4 h-4 mr-1" />
+                  <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                   Add Option
                 </Button>
               )}
@@ -330,10 +332,10 @@ export const QuizBuilder = ({ questions, onChange, sessionType }: QuizBuilderPro
                   <motion.div
                     key={oIndex}
                     layout
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap"
                   >
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-medium shrink-0 ${
+                      className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-medium shrink-0 ${
                         isCorrect
                           ? "bg-spark-green text-white"
                           : "bg-muted text-muted-foreground"
@@ -345,42 +347,45 @@ export const QuizBuilder = ({ questions, onChange, sessionType }: QuizBuilderPro
                       placeholder={`Option ${oIndex + 1}`}
                       value={option.text}
                       onChange={(e) => updateOption(activeIndex, oIndex, e.target.value)}
-                      className="flex-1"
+                      className="flex-1 min-w-0 text-sm"
                     />
-                    {sessionType === "quiz" && (
-                      <Button
-                        variant={isCorrect ? "gradient" : "outline"}
-                        size="sm"
-                        onClick={() => setCorrectOption(activeIndex, oIndex)}
-                        className="shrink-0"
-                      >
-                        {isCorrect ? (
-                          <>
-                            <CheckCircle className="w-4 h-4 mr-1" />
-                            Correct
-                          </>
-                        ) : (
-                          "Set Correct"
-                        )}
-                      </Button>
-                    )}
-                    {(activeQuestion?.options?.length || 0) > 2 && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive shrink-0"
-                        onClick={() => removeOption(activeIndex, oIndex)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
+                    <div className="flex gap-1 shrink-0">
+                      {sessionType === "quiz" && (
+                        <Button
+                          variant={isCorrect ? "gradient" : "outline"}
+                          size="sm"
+                          onClick={() => setCorrectOption(activeIndex, oIndex)}
+                          className="shrink-0 text-xs sm:text-sm px-2 sm:px-3"
+                        >
+                          {isCorrect ? (
+                            <>
+                              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                              <span className="hidden sm:inline">Correct</span>
+                            </>
+                          ) : (
+                            <span className="hidden sm:inline">Set Correct</span>
+                          )}
+                          {!isCorrect && <CheckCircle className="w-3 h-3 sm:hidden" />}
+                        </Button>
+                      )}
+                      {(activeQuestion?.options?.length || 0) > 2 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive shrink-0 w-8 h-8 sm:w-9 sm:h-9"
+                          onClick={() => removeOption(activeIndex, oIndex)}
+                        >
+                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </motion.div>
                 );
               })}
             </div>
             {sessionType === "quiz" && !activeQuestion?.options?.some((o) => o.isCorrect) && (
-              <div className="flex items-center gap-2 text-amber-500 text-sm">
-                <AlertCircle className="w-4 h-4" />
+              <div className="flex items-center gap-2 text-amber-500 text-xs sm:text-sm">
+                <AlertCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                 Please mark the correct answer
               </div>
             )}
