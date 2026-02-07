@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,12 +23,14 @@ const BuzzerSession = () => {
   const params = useParams<{ code?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
 
   const sessionCode = params.code?.toUpperCase() || "";
-  const isHost = searchParams.get("host") === "true";
+  const hostQueryParam = searchParams.get("host") === "true";
 
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isVerifiedHost, setIsVerifiedHost] = useState(false);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [nickname, setNickname] = useState<string>("");
   const [avatar, setAvatar] = useState<string>("😀");
@@ -36,8 +39,14 @@ const BuzzerSession = () => {
   const [codeCopied, setCodeCopied] = useState(false);
   const [participantCount, setParticipantCount] = useState(0);
 
+  // Determine if the current user is actually the host (verified via auth + session.host_id)
+  const isHost = isVerifiedHost;
+
   // Load session data
   useEffect(() => {
+    // Wait for auth to finish loading before proceeding
+    if (authLoading) return;
+
     const loadSession = async () => {
       if (!sessionCode) return;
 
@@ -60,6 +69,26 @@ const BuzzerSession = () => {
 
         setSession(data);
 
+        // Verify host access: if ?host=true is in URL, check if current user is the actual host
+        if (hostQueryParam) {
+          if (!user) {
+            // User is not logged in but trying to access host panel
+            toast.error("You must be logged in to access the host panel");
+            navigate("/");
+            return;
+          }
+          
+          if (user.id !== data.host_id) {
+            // User is logged in but is not the session host
+            toast.error("You don't have permission to access this host panel");
+            navigate("/");
+            return;
+          }
+          
+          // User is verified as the actual host
+          setIsVerifiedHost(true);
+        }
+
         // Get participant count
         const { count } = await supabase
           .from('participants')
@@ -68,8 +97,8 @@ const BuzzerSession = () => {
 
         setParticipantCount(count || 0);
 
-        // Check if participant exists in local storage
-        if (!isHost) {
+        // Check if participant exists in local storage (only for non-hosts)
+        if (!hostQueryParam) {
           const storedParticipantId = localStorage.getItem(`buzzer_participant_${data.id}`);
           const storedNickname = localStorage.getItem(`buzzer_nickname_${data.id}`);
           const storedAvatar = localStorage.getItem(`buzzer_avatar_${data.id}`);
@@ -111,7 +140,7 @@ const BuzzerSession = () => {
     };
 
     loadSession();
-  }, [sessionCode, isHost, navigate]);
+  }, [sessionCode, hostQueryParam, user, authLoading, navigate]);
 
   // Subscribe to participant count
   useEffect(() => {
@@ -223,8 +252,8 @@ const BuzzerSession = () => {
     setTimeout(() => setCodeCopied(false), 2000);
   };
 
-  // Loading state
-  if (loading) {
+  // Loading state (also wait for auth if host query param is present)
+  if (loading || (hostQueryParam && authLoading)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-md w-full">

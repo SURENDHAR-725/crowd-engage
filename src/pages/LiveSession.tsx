@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -72,17 +73,19 @@ const LiveSession = () => {
   const params = useParams<{ sessionId?: string; code?: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   
   // Support both route patterns: /live/:sessionId and /session/:code
   const routeSessionId = params.sessionId;
   const routeCode = params.code;
   
-  const isHost = searchParams.get("host") === "true";
+  const hostQueryParam = searchParams.get("host") === "true";
   
   const [session, setSession] = useState<Session | null>(null);
   const [resolvedSessionId, setResolvedSessionId] = useState<string | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isVerifiedHost, setIsVerifiedHost] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +99,9 @@ const LiveSession = () => {
   const [joinNickname, setJoinNickname] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState("😀");
   const [isJoining, setIsJoining] = useState(false);
+
+  // Determine if the current user is actually the host (verified via auth + session.host_id)
+  const isHost = isVerifiedHost;
 
   // Avatar options
   const AVATARS = ["😀", "😎", "🤓", "🦊", "🐱", "🐶", "🦁", "🐼", "🐨", "🐸", "🐵", "🦄"];
@@ -135,6 +141,9 @@ const LiveSession = () => {
 
   // Load session data
   useEffect(() => {
+    // Wait for auth to finish loading before proceeding
+    if (authLoading) return;
+
     const loadSession = async () => {
       if (!routeSessionId && !routeCode) return;
 
@@ -172,6 +181,26 @@ const LiveSession = () => {
           return;
         }
 
+        // Verify host access: if ?host=true is in URL, check if current user is the actual host
+        if (hostQueryParam) {
+          if (!user) {
+            // User is not logged in but trying to access host panel
+            toast.error("You must be logged in to access the host panel");
+            navigate("/");
+            return;
+          }
+          
+          if (user.id !== sessionData.host_id) {
+            // User is logged in but is not the session host
+            toast.error("You don't have permission to access this host panel");
+            navigate("/");
+            return;
+          }
+          
+          // User is verified as the actual host
+          setIsVerifiedHost(true);
+        }
+
         setSession(sessionData);
         setResolvedSessionId(sessionData.id);
 
@@ -197,7 +226,7 @@ const LiveSession = () => {
         setQuestions(questionsData || []);
 
         // Get participant info - for non-host participants
-        if (!isHost) {
+        if (!hostQueryParam) {
           const storedParticipantId = sessionStorage.getItem(`participant_${sessionData.id}`);
           const storedNickname = localStorage.getItem("nickname") || "";
           
@@ -245,7 +274,7 @@ const LiveSession = () => {
     };
 
     loadSession();
-  }, [routeSessionId, routeCode, navigate, isHost]);
+  }, [routeSessionId, routeCode, hostQueryParam, user, authLoading, navigate]);
 
   // Subscribe to session status changes
   useEffect(() => {
@@ -447,8 +476,8 @@ const LiveSession = () => {
     }
   };
 
-  // Loading state
-  if (loading) {
+  // Loading state (also wait for auth if host query param is present)
+  if (loading || (hostQueryParam && authLoading)) {
     return (
       <>
         <ChaosEffects enabled={chaosEnabled} />
