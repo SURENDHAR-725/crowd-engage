@@ -10,7 +10,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = import.meta.env.DEV
 const NVIDIA_API_KEY = import.meta.env.VITE_NVIDIA_API_KEY || '';
 // Use serverless function proxy to avoid CORS issues in both dev and production
 const NVIDIA_API_URL = '/api/nvidia/v1/chat/completions';
-const NVIDIA_MODEL = 'meta/llama-3.3-70b-instruct'; // Best for educational content generation
+const NVIDIA_MODEL = 'meta/llama-3.1-8b-instruct'; // Best for educational content generation
 let nvidiaCooldownUntil = 0;
 
 export interface GeneratedQuestion {

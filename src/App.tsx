@@ -22,6 +22,14 @@ const SignIn = lazy(() => import("./pages/SignIn"));
 const SignUp = lazy(() => import("./pages/SignUp"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
+// AI Interview lazy-loaded pages
+const InterviewDashboard = lazy(() => import("./pages/InterviewDashboard"));
+const InterviewSetup = lazy(() => import("./pages/InterviewSetup"));
+const InterviewFlow = lazy(() => import("./pages/InterviewFlow"));
+const InterviewReport = lazy(() => import("./pages/InterviewReport"));
+const InterviewHistory = lazy(() => import("./pages/InterviewHistory"));
+const VoiceInterview = lazy(() => import("./pages/VoiceInterview"));
+
 const queryClient = new QueryClient();
 
 // Loading fallback component
@@ -53,6 +61,12 @@ const App = () => (
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/create" element={<CreateSession />} />
                     <Route path="/mocktest" element={<MockTest />} />
+                    <Route path="/interview" element={<InterviewDashboard />} />
+                    <Route path="/interview/setup" element={<InterviewSetup />} />
+                    <Route path="/interview/session/:id" element={<InterviewFlow />} />
+                    <Route path="/interview/report/:id" element={<InterviewReport />} />
+                    <Route path="/interview/history" element={<InterviewHistory />} />
+                    <Route path="/interview/voice/:id" element={<VoiceInterview />} />
                   </Route>
                   <Route path="/session/:code" element={<LiveSession />} />
                   <Route path="/buzzer/:code" element={<BuzzerSession />} />

@@ -310,3 +310,81 @@
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* ─── Voice Interview Styles ─────────────────────────────────────── */
+
+.voice-interview-bg {
+    background: linear-gradient(180deg,
+        hsl(var(--background)) 0%,
+        hsl(260 25% 4%) 50%,
+        hsl(260 30% 6%) 100%
+    );
+}
+
+.dark .voice-interview-bg {
+    background: linear-gradient(180deg,
+        hsl(260 25% 4%) 0%,
+        hsl(260 30% 3%) 50%,
+        hsl(260 25% 5%) 100%
+    );
+}
+
+/* Avatar ring animations */
+.voice-ring-speaking {
+    background: conic-gradient(
+        from 0deg,
+        hsl(var(--primary)) 0%,
+        hsl(var(--accent)) 25%,
+        hsl(var(--primary)) 50%,
+        hsl(var(--secondary)) 75%,
+        hsl(var(--primary)) 100%
+    );
+    border-radius: 9999px;
+    animation: voice-ring-rotate 3s linear infinite;
+}
+
+.voice-ring-listening {
+    background: conic-gradient(
+        from 0deg,
+        hsl(142 71% 45%) 0%,
+        hsl(174 62% 47%) 25%,
+        hsl(142 71% 45%) 50%,
+        hsl(174 62% 47%) 75%,
+        hsl(142 71% 45%) 100%
+    );
+    border-radius: 9999px;
+    animation: voice-ring-rotate 4s linear infinite;
+}
+
+@keyframes voice-ring-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Transcript container */
+.voice-transcript-container {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.voice-transcript-container::-webkit-scrollbar {
+    width: 4px;
+}
+
+.voice-transcript-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.voice-transcript-container::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 20px;
+}
+
+/* Thin scrollbar utility */
+.scrollbar-thin {
+    scrollbar-width: thin;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+}
