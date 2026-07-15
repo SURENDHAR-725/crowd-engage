@@ -26,7 +26,7 @@ export interface SpeechSynthesisConfig {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const ELEVENLABS_API_KEY = "sk_0ea8759555ef39e573ea49d7b292ad2eb75cd4016970afc3";
-const ELEVENLABS_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah
+const ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"; // Rachel
 
 const DEFAULT_CONFIG: Required<SpeechSynthesisConfig> = {
   voice: '',
@@ -160,7 +160,6 @@ export class SpeechSynthesisService {
       const sentence = this.sentenceQueue.shift()!;
       if (!sentence.trim()) continue;
 
-      this.callbacks.onSentenceStart?.(sentence);
       try {
         await this.speakSentence(sentence);
       } catch (err) {
@@ -198,7 +197,7 @@ export class SpeechSynthesisService {
           },
           body: JSON.stringify({
             text: text,
-            model_id: "eleven_flash_v2_5"
+            model_id: "eleven_turbo_v2_5"
           })
         });
 
@@ -230,6 +229,7 @@ export class SpeechSynthesisService {
           return;
         }
 
+        this.callbacks.onSentenceStart?.(text);
         await audio.play();
       } catch (err) {
         reject(err);

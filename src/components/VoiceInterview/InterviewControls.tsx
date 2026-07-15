@@ -5,7 +5,7 @@
  */
 
 import { motion } from 'framer-motion';
-import { Mic, MicOff, Video, VideoOff, PhoneOff } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { VoiceInterviewPhase } from '@/hooks/useVoiceInterview';
@@ -17,6 +17,7 @@ interface InterviewControlsProps {
   onToggleMute: () => void;
   onToggleCamera: () => void;
   onEndInterview: () => void;
+  onForceProcessAnswer?: () => void;
 }
 
 export function InterviewControls({
@@ -26,6 +27,7 @@ export function InterviewControls({
   onToggleMute,
   onToggleCamera,
   onEndInterview,
+  onForceProcessAnswer,
 }: InterviewControlsProps) {
   const isInterviewActive = phase === 'ai_speaking' || phase === 'listening' || phase === 'processing';
 
@@ -61,6 +63,25 @@ export function InterviewControls({
           <p>{isMuted ? 'Unmute (M)' : 'Mute (M)'}</p>
         </TooltipContent>
       </Tooltip>
+
+      {/* Done Answering Button */}
+      {phase === 'listening' && onForceProcessAnswer && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="default"
+              size="lg"
+              className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
+              onClick={onForceProcessAnswer}
+            >
+              <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>Done Answering (Space)</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       {/* Camera Button */}
       <Tooltip>

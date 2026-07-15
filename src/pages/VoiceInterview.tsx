@@ -31,6 +31,7 @@ const VoiceInterview = () => {
     session,
     transcript,
     currentAIText,
+    visibleAIText,
     currentUserText,
     interimText,
     questionCount,
@@ -41,6 +42,7 @@ const VoiceInterview = () => {
     initialize,
     endInterview,
     toggleMute,
+    forceProcessAnswer,
   } = useVoiceInterview();
 
   // Initialize on mount
@@ -68,6 +70,12 @@ const VoiceInterview = () => {
     } else if (e.key === 'c' || e.key === 'C') {
       e.preventDefault();
       setIsCameraOn(prev => !prev);
+    } else if (e.key === ' ') {
+      // Space to force submit answer if listening
+      if (phase === 'listening' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA' && document.activeElement?.tagName !== 'BUTTON') {
+        e.preventDefault();
+        forceProcessAnswer();
+      }
     } else if (e.key === 'Escape') {
       e.preventDefault();
       if (phase !== 'completed' && phase !== 'initializing') {
@@ -76,7 +84,7 @@ const VoiceInterview = () => {
         }
       }
     }
-  }, [toggleMute, endInterview, phase]);
+  }, [toggleMute, endInterview, phase, forceProcessAnswer]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -213,12 +221,10 @@ const VoiceInterview = () => {
           {/* Bottom: Live Transcript */}
           <div className="flex-1 min-h-0 border-t border-border/20 bg-background/30 backdrop-blur-sm">
             <LiveTranscript
-              entries={transcript}
-              currentAIText={currentAIText}
+              phase={phase}
+              visibleAIText={visibleAIText}
               currentUserText={currentUserText}
               interimText={interimText}
-              isAISpeaking={phase === 'ai_speaking'}
-              isListening={phase === 'listening'}
             />
           </div>
         </div>
@@ -244,6 +250,7 @@ const VoiceInterview = () => {
           onToggleMute={toggleMute}
           onToggleCamera={() => setIsCameraOn(prev => !prev)}
           onEndInterview={handleEndInterview}
+          onForceProcessAnswer={forceProcessAnswer}
         />
       </div>
 

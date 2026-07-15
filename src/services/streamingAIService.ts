@@ -174,7 +174,7 @@ CRITICAL VOICE INTERVIEW RULES:
 4. Reference the candidate's previous answers naturally. Ask follow-up questions.
 5. If the candidate gives a strong answer, increase difficulty. If they struggle, be encouraging and ask an easier follow-up.
 6. Never output markdown, headers, bullet points, or formatting. Just speak naturally.
-7. Keep each response under 3-4 sentences maximum.
+7. KEEP IT SHORT: Never give long monologues. 1-2 sentences maximum per turn.
 8. ${isIntro ? 'This is the START of the interview. Introduce yourself briefly as Alex, welcome the candidate, and ask the first question.' : 'Continue the conversation naturally based on the history. Acknowledge the last answer briefly, then ask the next question.'}`;
 
   const messages: Array<{ role: string; content: string }> = [

@@ -40,6 +40,7 @@ export interface UseVoiceInterviewReturn {
   session: InterviewSession | null;
   transcript: TranscriptEntry[];
   currentAIText: string;
+  visibleAIText: string;
   currentUserText: string;
   interimText: string;
   questionCount: number;
@@ -52,6 +53,7 @@ export interface UseVoiceInterviewReturn {
   initialize: (interviewId: string, experienceLevel?: string) => Promise<void>;
   endInterview: () => Promise<void>;
   toggleMute: () => void;
+  forceProcessAnswer: () => void;
 }
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
@@ -64,6 +66,7 @@ export function useVoiceInterview(): UseVoiceInterviewReturn {
   const [session, setSession] = useState<InterviewSession | null>(null);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [currentAIText, setCurrentAIText] = useState('');
+  const [visibleAIText, setVisibleAIText] = useState('');
   const [currentUserText, setCurrentUserText] = useState('');
   const [questionCount, setQuestionCount] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -111,11 +114,8 @@ export function useVoiceInterview(): UseVoiceInterviewReturn {
       voiceRecognition.resetTranscript();
       setCurrentUserText('');
       setPhase('listening');
-      if (!isMuted) {
-        voiceRecognition.startListening();
-      }
     }
-  }, [isMuted]);
+  }, [isMuted, voiceRecognition]);
 
   const speechSynthesis = useSpeechSynthesis({}, handleAISpeakingEnd);
 
@@ -144,7 +144,7 @@ export function useVoiceInterview(): UseVoiceInterviewReturn {
 
   // Sync user transcript
   useEffect(() => {
-    if (phase === 'listening') {
+    if (phase === 'listening' || phase === 'ai_speaking') {
       const combined = voiceRecognition.transcript +
         (voiceRecognition.interimTranscript ? ' ' + voiceRecognition.interimTranscript : '');
       const trimmed = combined.trim();
@@ -152,6 +152,50 @@ export function useVoiceInterview(): UseVoiceInterviewReturn {
       currentUserTextRef.current = trimmed;
     }
   }, [voiceRecognition.transcript, voiceRecognition.interimTranscript, phase]);
+
+  // Sync visible AI text with typewriter effect
+  const typewriterQueue = useRef<string>('');
+  
+  useEffect(() => {
+    if (speechSynthesis.currentSentence) {
+      typewriterQueue.current += (typewriterQueue.current && !typewriterQueue.current.endsWith(' ') ? ' ' : '') + speechSynthesis.currentSentence;
+    }
+  }, [speechSynthesis.currentSentence]);
+
+  useEffect(() => {
+    if (phase !== 'ai_speaking') {
+      typewriterQueue.current = '';
+      return;
+    }
+
+    const interval = setInterval(() => {
+      if (typewriterQueue.current.length > 0) {
+        const charsToTake = 1; // Adjust speed if necessary, 1 char per 30ms is ~33 chars/sec
+        const chunk = typewriterQueue.current.slice(0, charsToTake);
+        typewriterQueue.current = typewriterQueue.current.slice(charsToTake);
+        setVisibleAIText(prev => prev + chunk);
+      }
+    }, 30);
+
+    return () => clearInterval(interval);
+  }, [phase]);
+
+  // Interrupt logic
+  const handleInterrupt = useCallback(() => {
+    setPhase('listening');
+    abortControllerRef.current?.abort();
+    speechSynthesis.interrupt();
+  }, [speechSynthesis]);
+
+  useEffect(() => {
+    if (phase === 'ai_speaking') {
+      const interim = voiceRecognition.interimTranscript.trim();
+      // Require at least a few words to interrupt to prevent echo from triggering it
+      if (interim.length > 10 || interim.split(' ').length > 2) {
+        handleInterrupt();
+      }
+    }
+  }, [voiceRecognition.interimTranscript, phase, handleInterrupt]);
 
   // ─── Initialize ─────────────────────────────────────────────────────────
 
@@ -212,6 +256,12 @@ export function useVoiceInterview(): UseVoiceInterviewReturn {
 
     setPhase('ai_speaking');
     setCurrentAIText('');
+    setVisibleAIText('');
+
+    // Ensure mic is ON so user can interrupt
+    if (!isMuted && !voiceRecognition.isListening) {
+      voiceRecognition.resumeListening();
+    }
 
     // Abort any previous streaming
     abortControllerRef.current?.abort();
@@ -470,6 +520,17 @@ export function useVoiceInterview(): UseVoiceInterviewReturn {
     await finishInterview();
   }, []);
 
+  const forceProcessAnswer = useCallback(() => {
+    if (phaseRef.current === 'listening') {
+      processUserAnswer();
+    }
+  }, [phaseRef.current, currentUserTextRef.current]); 
+  // We don't use processUserAnswer directly in deps because it changes every render, 
+  // but we can just call it by keeping it as a stable wrapper that calls the current one.
+  // Wait, if we use a stable wrapper, it will capture the FIRST processUserAnswer unless we use a ref.
+  // A simple way is to just define it directly since it doesn't need to be stable for button clicks.
+
+
   // ─── Mute Toggle ────────────────────────────────────────────────────────
 
   const toggleMute = useCallback(() => {
@@ -489,6 +550,7 @@ export function useVoiceInterview(): UseVoiceInterviewReturn {
     session,
     transcript,
     currentAIText,
+    visibleAIText,
     currentUserText,
     interimText: voiceRecognition.interimTranscript,
     questionCount,
@@ -499,5 +561,6 @@ export function useVoiceInterview(): UseVoiceInterviewReturn {
     initialize,
     endInterview,
     toggleMute,
+    forceProcessAnswer: processUserAnswer,
   };
 }
