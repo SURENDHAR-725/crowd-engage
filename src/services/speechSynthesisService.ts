@@ -1,7 +1,7 @@
 /**
  * Speech Synthesis Service
  * 
- * Wraps the browser SpeechSynthesis API for natural text-to-speech
+ * Wraps ElevenLabs API for natural text-to-speech
  * with streaming support, interrupt handling, and speaking state callbacks.
  */
 
@@ -25,45 +25,34 @@ export interface SpeechSynthesisConfig {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
+const ELEVENLABS_API_KEY = "sk_0ea8759555ef39e573ea49d7b292ad2eb75cd4016970afc3";
+const ELEVENLABS_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"; // Sarah
+
 const DEFAULT_CONFIG: Required<SpeechSynthesisConfig> = {
   voice: '',
-  rate: 0.95,
+  rate: 1.0,
   pitch: 1.0,
-  volume: 0.9,
+  volume: 1.0,
   language: 'en-US',
 };
-
-// Preferred voice names (in order of preference) for natural sound
-const PREFERRED_VOICES = [
-  'Google UK English Male',
-  'Google US English',
-  'Microsoft David',
-  'Microsoft Mark',
-  'Daniel',
-  'Alex',
-  'Samantha',
-  'Google UK English Female',
-  'Microsoft Zira',
-];
 
 // ─── Browser API Detection ──────────────────────────────────────────────────
 
 export function isSpeechSynthesisSupported(): boolean {
-  return typeof window !== 'undefined' && 'speechSynthesis' in window;
+  return true; // We use an API now
 }
 
 // ─── Service Class ──────────────────────────────────────────────────────────
 
 export class SpeechSynthesisService {
-  private synth: SpeechSynthesis | null = null;
   private config: Required<SpeechSynthesisConfig>;
   private callbacks: SpeechSynthesisCallbacks;
-  private selectedVoice: SpeechSynthesisVoice | null = null;
-  private voicesLoaded = false;
+  private voicesLoaded = true;
   private sentenceQueue: string[] = [];
   private isSpeakingActive = false;
   private isInterrupted = false;
-  private currentUtterance: SpeechSynthesisUtterance | null = null;
+  private currentAudio: HTMLAudioElement | null = null;
+  private queueProcessing = false;
 
   constructor(
     callbacks: SpeechSynthesisCallbacks = {},
@@ -71,22 +60,12 @@ export class SpeechSynthesisService {
   ) {
     this.callbacks = callbacks;
     this.config = { ...DEFAULT_CONFIG, ...config };
-
-    if (isSpeechSynthesisSupported()) {
-      this.synth = window.speechSynthesis;
-      this.loadVoices();
-    }
   }
 
   /**
    * Speak a complete text. Splits into sentences for natural pacing.
    */
   async speak(text: string): Promise<void> {
-    if (!this.synth) {
-      this.callbacks.onError?.('Speech synthesis is not supported in this browser.');
-      return;
-    }
-
     this.stop(); // Clear any previous speech
     this.isInterrupted = false;
 
@@ -95,7 +74,9 @@ export class SpeechSynthesisService {
     this.isSpeakingActive = true;
     this.callbacks.onSpeakingStart?.();
 
-    await this.processQueue();
+    if (!this.queueProcessing) {
+      await this.processQueue();
+    }
   }
 
   /**
@@ -103,14 +84,15 @@ export class SpeechSynthesisService {
    * Called repeatedly as streaming tokens arrive.
    */
   addToStream(sentence: string): void {
-    if (!this.synth) return;
-    
     this.sentenceQueue.push(sentence);
     
     if (!this.isSpeakingActive) {
       this.isSpeakingActive = true;
       this.isInterrupted = false;
       this.callbacks.onSpeakingStart?.();
+    }
+    
+    if (!this.queueProcessing) {
       this.processQueue();
     }
   }
@@ -122,10 +104,11 @@ export class SpeechSynthesisService {
     this.isInterrupted = true;
     this.isSpeakingActive = false;
     this.sentenceQueue = [];
-    this.currentUtterance = null;
 
-    if (this.synth) {
-      this.synth.cancel();
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio.currentTime = 0;
+      this.currentAudio = null;
     }
   }
 
@@ -157,7 +140,7 @@ export class SpeechSynthesisService {
    * Get list of available voices
    */
   getAvailableVoices(): SpeechSynthesisVoice[] {
-    return this.synth?.getVoices() || [];
+    return []; // Return empty as we don't use browser voices anymore
   }
 
   /**
@@ -165,68 +148,25 @@ export class SpeechSynthesisService {
    */
   destroy(): void {
     this.stop();
-    this.synth = null;
   }
 
   // ─── Private Methods ────────────────────────────────────────────────────
 
-  private loadVoices(): void {
-    if (!this.synth) return;
-
-    const doLoad = () => {
-      const voices = this.synth!.getVoices();
-      if (voices.length > 0) {
-        this.selectBestVoice(voices);
-        this.voicesLoaded = true;
-      }
-    };
-
-    // Voices may be loaded asynchronously
-    doLoad();
-    this.synth.onvoiceschanged = () => doLoad();
-  }
-
-  private selectBestVoice(voices: SpeechSynthesisVoice[]): void {
-    // If user specified a voice name, try to find it
-    if (this.config.voice) {
-      const match = voices.find(v =>
-        v.name.toLowerCase().includes(this.config.voice.toLowerCase())
-      );
-      if (match) {
-        this.selectedVoice = match;
-        return;
-      }
-    }
-
-    // Try preferred voices in order
-    for (const preferred of PREFERRED_VOICES) {
-      const match = voices.find(v =>
-        v.name.toLowerCase().includes(preferred.toLowerCase())
-      );
-      if (match) {
-        this.selectedVoice = match;
-        return;
-      }
-    }
-
-    // Fallback: first English voice
-    const englishVoice = voices.find(v => v.lang.startsWith('en'));
-    if (englishVoice) {
-      this.selectedVoice = englishVoice;
-      return;
-    }
-
-    // Last resort: first available voice
-    this.selectedVoice = voices[0] || null;
-  }
-
   private async processQueue(): Promise<void> {
+    if (this.queueProcessing) return;
+    this.queueProcessing = true;
+    
     while (this.sentenceQueue.length > 0 && !this.isInterrupted) {
       const sentence = this.sentenceQueue.shift()!;
       if (!sentence.trim()) continue;
 
       this.callbacks.onSentenceStart?.(sentence);
-      await this.speakSentence(sentence);
+      try {
+        await this.speakSentence(sentence);
+      } catch (err) {
+        console.error("ElevenLabs TTS Error:", err);
+        this.callbacks.onError?.(err instanceof Error ? err.message : String(err));
+      }
       this.callbacks.onSentenceEnd?.(sentence);
 
       // Small natural pause between sentences
@@ -235,6 +175,7 @@ export class SpeechSynthesisService {
       }
     }
 
+    this.queueProcessing = false;
     if (!this.isInterrupted) {
       this.isSpeakingActive = false;
       this.callbacks.onSpeakingEnd?.();
@@ -242,39 +183,57 @@ export class SpeechSynthesisService {
   }
 
   private speakSentence(text: string): Promise<void> {
-    return new Promise((resolve) => {
-      if (!this.synth || this.isInterrupted) {
+    return new Promise(async (resolve, reject) => {
+      if (this.isInterrupted) {
         resolve();
         return;
       }
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      this.currentUtterance = utterance;
+      try {
+        const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'xi-api-key': ELEVENLABS_API_KEY
+          },
+          body: JSON.stringify({
+            text: text,
+            model_id: "eleven_flash_v2_5"
+          })
+        });
 
-      if (this.selectedVoice) {
-        utterance.voice = this.selectedVoice;
-      }
-
-      utterance.rate = this.config.rate;
-      utterance.pitch = this.config.pitch;
-      utterance.volume = this.config.volume;
-      utterance.lang = this.config.language;
-
-      utterance.onend = () => {
-        this.currentUtterance = null;
-        resolve();
-      };
-
-      utterance.onerror = (event) => {
-        this.currentUtterance = null;
-        // 'interrupted' and 'canceled' are expected during stop/interrupt
-        if (event.error !== 'interrupted' && event.error !== 'canceled') {
-          console.warn('Speech synthesis error:', event.error);
+        if (!response.ok) {
+          throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText}`);
         }
-        resolve();
-      };
 
-      this.synth.speak(utterance);
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        const audio = new Audio(audioUrl);
+        this.currentAudio = audio;
+
+        audio.onended = () => {
+          URL.revokeObjectURL(audioUrl);
+          this.currentAudio = null;
+          resolve();
+        };
+
+        audio.onerror = (e) => {
+          URL.revokeObjectURL(audioUrl);
+          this.currentAudio = null;
+          reject(new Error("Audio playback failed"));
+        };
+
+        if (this.isInterrupted) {
+          URL.revokeObjectURL(audioUrl);
+          resolve();
+          return;
+        }
+
+        await audio.play();
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 

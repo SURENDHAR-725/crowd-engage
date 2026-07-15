@@ -83,6 +83,7 @@ export function useVoiceInterview(): UseVoiceInterviewReturn {
   const totalQuestionsLimit = 5;
   const phaseRef = useRef<VoiceInterviewPhase>('initializing');
   const experienceLevelRef = useRef<string>('1-3 Years');
+  const currentUserTextRef = useRef<string>('');
 
   // Keep phaseRef in sync
   useEffect(() => {
@@ -146,7 +147,9 @@ export function useVoiceInterview(): UseVoiceInterviewReturn {
     if (phase === 'listening') {
       const combined = voiceRecognition.transcript +
         (voiceRecognition.interimTranscript ? ' ' + voiceRecognition.interimTranscript : '');
-      setCurrentUserText(combined.trim());
+      const trimmed = combined.trim();
+      setCurrentUserText(trimmed);
+      currentUserTextRef.current = trimmed;
     }
   }, [voiceRecognition.transcript, voiceRecognition.interimTranscript, phase]);
 
@@ -283,13 +286,17 @@ export function useVoiceInterview(): UseVoiceInterviewReturn {
       if (savedQ) {
         questionsRef.current.push(savedQ);
       }
+    } else {
+      // Recover if response was empty (e.g. API rate limit)
+      setPhase('error');
+      setError('Failed to generate AI response. Please check your connection or try again later.');
     }
   };
 
   // ─── Process User Answer ────────────────────────────────────────────────
 
   const processUserAnswer = async () => {
-    const answerText = voiceRecognition.transcript.trim();
+    const answerText = currentUserTextRef.current;
     if (!answerText || phaseRef.current !== 'listening') return;
 
     // Stop listening
