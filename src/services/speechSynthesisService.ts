@@ -25,7 +25,7 @@ export interface SpeechSynthesisConfig {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const ELEVENLABS_API_KEY = "sk_0ea8759555ef39e573ea49d7b292ad2eb75cd4016970afc3";
+const ELEVENLABS_API_KEY = "sk_f79c399848f727a68f8db3fe3e49686234e51001d0de0580";
 const ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"; // Rachel
 
 const DEFAULT_CONFIG: Required<SpeechSynthesisConfig> = {
@@ -110,6 +110,10 @@ export class SpeechSynthesisService {
       this.currentAudio.currentTime = 0;
       this.currentAudio = null;
     }
+    
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
   }
 
   /**
@@ -140,7 +144,10 @@ export class SpeechSynthesisService {
    * Get list of available voices
    */
   getAvailableVoices(): SpeechSynthesisVoice[] {
-    return []; // Return empty as we don't use browser voices anymore
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      return window.speechSynthesis.getVoices();
+    }
+    return [];
   }
 
   /**
@@ -232,7 +239,46 @@ export class SpeechSynthesisService {
         this.callbacks.onSentenceStart?.(text);
         await audio.play();
       } catch (err) {
-        reject(err);
+        console.warn("ElevenLabs TTS failed, falling back to browser TTS:", err);
+        
+        if (typeof window === 'undefined' || !window.speechSynthesis) {
+          reject(err);
+          return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        // Try to find a good english voice
+        const voices = window.speechSynthesis.getVoices();
+        const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+        if (englishVoices.length > 0) {
+           const preferred = englishVoices.find(v => 
+             v.name.toLowerCase().includes('female') || 
+             v.name.toLowerCase().includes('samantha') || 
+             v.name.toLowerCase().includes('google uk english female')
+           );
+           utterance.voice = preferred || englishVoices[0];
+        }
+
+        utterance.onstart = () => {
+          this.callbacks.onSentenceStart?.(text);
+        };
+
+        utterance.onend = () => {
+          resolve();
+        };
+
+        utterance.onerror = (e) => {
+          console.error("Browser TTS error:", e);
+          resolve(); // Resolve anyway to continue queue
+        };
+        
+        if (this.isInterrupted) {
+           resolve();
+           return;
+        }
+
+        window.speechSynthesis.speak(utterance);
       }
     });
   }
