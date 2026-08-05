@@ -17,7 +17,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="text-muted-foreground text-xs sm:text-sm mb-4">
-              Making presentations interactive, one spark at a time.
+              Practice Smarter. Interview Better. Get Hired Faster.
             </p>
             <div className="flex items-center gap-2 sm:gap-3">
               <a href="#" className="p-1.5 sm:p-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors">
@@ -119,7 +119,7 @@ export function Footer() {
             © 2024 CrowdSpark. All rights reserved.
           </p>
           <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-right">
-            Built with ❤️ for interactive presentations
+            Built with ❤️ for interview excellence
           </p>
         </div>
       </div>

@@ -92,7 +92,7 @@ export function Navbar() {
             </Sheet>
 
             <Link to="/join">
-              <Button variant="outline">Join Session</Button>
+              <Button variant="outline">Start Interview</Button>
             </Link>
             {user ? (
               <>
@@ -173,7 +173,7 @@ export function Navbar() {
 
               <div className="flex flex-col gap-2 pt-4 border-t border-border">
                 <Link to="/join" onClick={() => setIsMenuOpen(false)}>
-                  <Button variant="outline" className="w-full">Join Session</Button>
+                  <Button variant="outline" className="w-full">Start Interview</Button>
                 </Link>
                 {user ? (
                   <>

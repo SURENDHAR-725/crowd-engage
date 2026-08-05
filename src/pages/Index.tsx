@@ -10,10 +10,10 @@ const Index = () => {
   return (
     <>
       <Helmet>
-        <title>CrowdSpark - Real-Time Audience Engagement Platform</title>
+        <title>CrowdSpark - AI-Powered Interview & Assessment Platform</title>
         <meta 
           name="description" 
-          content="Transform your presentations with live polls, quizzes, word clouds, and interactive games. Engage audiences in real-time with CrowdSpark." 
+          content="Practice technical and HR interviews with AI, generate personalized quizzes, upload resumes for tailored questions, and get detailed performance analytics with CrowdSpark." 
         />
       </Helmet>
       <div className="min-h-screen bg-background">

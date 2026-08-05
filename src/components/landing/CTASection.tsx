@@ -31,37 +31,39 @@ export function CTASection() {
             <div className="relative z-10 p-12 md:p-16 text-center text-primary-foreground">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-foreground/20 backdrop-blur-sm mb-6">
                 <Zap className="w-4 h-4" />
-                <span className="text-sm font-medium">Ready to spark engagement?</span>
+                <span className="text-sm font-medium">Ready to ace your next interview?</span>
               </div>
 
               <h2 className="text-3xl md:text-5xl font-display font-bold mb-6">
-                Start Engaging Your
+                Practice Smarter.
                 <br />
-                Audience Today
+                Interview Better.
+                <br />
+                Get Hired Faster.
               </h2>
 
               <p className="text-lg md:text-xl opacity-90 max-w-2xl mx-auto mb-10">
-                Join thousands of presenters, educators, and event hosts who are 
-                transforming their sessions with CrowdSpark.
+                Join thousands of students, graduates, and job seekers who are 
+                building interview confidence with CrowdSpark's AI-powered platform.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <Link to="/dashboard">
+                <Link to="/signin">
                   <Button 
                     size="xl" 
                     className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 shadow-elevated"
                   >
-                    Create Free Account
+                    Start AI Interview
                     <ArrowRight className="w-5 h-5" />
                   </Button>
                 </Link>
-                <Link to="/join">
+                <Link to="/dashboard">
                   <Button 
                     size="xl" 
                     variant="outline"
                     className="border-2 border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10"
                   >
-                    Join a Session
+                    Generate AI Quiz
                   </Button>
                 </Link>
               </div>

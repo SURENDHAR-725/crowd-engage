@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Play, Zap } from "lucide-react";
+import { ArrowRight, Sparkles, Rocket } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
@@ -30,8 +30,8 @@ export function HeroSection() {
             transition={{ duration: 0.5 }}
             className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-primary/10 text-primary border border-primary/20 mb-6 sm:mb-8"
           >
-            <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="text-xs sm:text-sm font-medium">Real-time audience engagement</span>
+            <Rocket className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="text-xs sm:text-sm font-medium">AI-Powered Interview & Assessment Platform</span>
           </motion.div>
 
           {/* Headline */}
@@ -41,10 +41,10 @@ export function HeroSection() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-display font-bold leading-tight mb-4 sm:mb-6"
           >
-            Make Your{" "}
-            <span className="text-gradient">Presentations</span>
+            Experience AI{" "}
+            <span className="text-gradient">Interviews</span>
             <br />
-            Come Alive
+            Like Never Before
           </motion.h1>
 
           {/* Subheadline */}
@@ -54,9 +54,9 @@ export function HeroSection() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 sm:mb-10"
           >
-            Transform passive audiences into active participants with live polls, 
-            quizzes, word clouds, and interactive games. Real-time results that 
-            spark engagement.
+            Practice technical and HR interviews with an intelligent AI interviewer, 
+            generate personalized quizzes instantly, receive real-time feedback, 
+            analyze your performance, and build confidence for your dream job.
           </motion.p>
 
           {/* CTA Buttons */}
@@ -66,16 +66,18 @@ export function HeroSection() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-12 sm:mb-16"
           >
-            <Link to="/dashboard" className="w-full sm:w-auto">
+            <Link to="/signin" className="w-full sm:w-auto">
               <Button variant="gradient" size="xl" className="group w-full sm:w-auto">
-                Start for Free
+                Start AI Interview
                 <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
-            <Button variant="glass" size="xl" className="group w-full sm:w-auto">
-              <Play className="w-4 h-4 sm:w-5 sm:h-5" />
-              Watch Demo
-            </Button>
+            <Link to="/dashboard" className="w-full sm:w-auto">
+              <Button variant="glass" size="xl" className="group w-full sm:w-auto">
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+                Generate AI Quiz
+              </Button>
+            </Link>
           </motion.div>
 
         </div>
@@ -83,17 +85,17 @@ export function HeroSection() {
         {/* Floating Elements */}
         <div className="absolute top-1/4 right-10 hidden lg:block animate-float">
           <div className="w-16 h-16 rounded-2xl bg-spark-coral/20 backdrop-blur-sm border border-spark-coral/30 flex items-center justify-center">
-            <span className="text-2xl">📊</span>
+            <span className="text-2xl">🎤</span>
           </div>
         </div>
         <div className="absolute bottom-1/3 left-10 hidden lg:block animate-float" style={{ animationDelay: "2s" }}>
           <div className="w-16 h-16 rounded-2xl bg-primary/20 backdrop-blur-sm border border-primary/30 flex items-center justify-center">
-            <span className="text-2xl">🎯</span>
+            <span className="text-2xl">🧠</span>
           </div>
         </div>
         <div className="absolute top-1/2 right-20 hidden lg:block animate-float" style={{ animationDelay: "4s" }}>
           <div className="w-12 h-12 rounded-xl bg-spark-teal/20 backdrop-blur-sm border border-spark-teal/30 flex items-center justify-center">
-            <span className="text-xl">✨</span>
+            <span className="text-xl">📈</span>
           </div>
         </div>
       </div>

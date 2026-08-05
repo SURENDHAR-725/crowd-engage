@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,8 @@ import {
   ChevronRight,
   Sun,
   Moon,
-  Loader2
+  Loader2,
+  FileText
 } from "lucide-react";
 import { Mic } from "lucide-react";
 import { useTheme } from "@/context/ThemeContext";
@@ -31,6 +32,9 @@ import { useResumeParser } from "@/hooks/useResumeParser";
 import { InterviewCard } from "@/components/Interview/InterviewCard";
 import { useAuth } from "@/context/AuthContext";
 import { formatDistanceToNow } from "date-fns";
+import { ResumeAnalyzer } from "@/components/ResumeAnalyzer/ResumeAnalyzer";
+
+type InterviewTab = 'interview' | 'resume';
 
 const InterviewDashboard = () => {
   const navigate = useNavigate();
@@ -38,6 +42,7 @@ const InterviewDashboard = () => {
   const { user, signOut } = useAuth();
   const { history, stats, loading, loadHistory } = useInterviewHistory();
   const { resumeAnalysis, loadExistingAnalysis } = useResumeParser();
+  const [activeTab, setActiveTab] = useState<InterviewTab>('interview');
 
   useEffect(() => {
     loadHistory();
@@ -70,10 +75,14 @@ const InterviewDashboard = () => {
             <BarChart3 className="w-5 h-5" />
             Sessions
           </Link>
-          <Link to="/interview" className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary/10 text-primary font-medium">
+          <button onClick={() => setActiveTab('resume')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'resume' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted'}`}>
+            <FileText className="w-5 h-5" />
+            Resume Analyzer
+          </button>
+          <button onClick={() => setActiveTab('interview')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === 'interview' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:bg-muted'}`}>
             <Briefcase className="w-5 h-5" />
             AI Interview
-          </Link>
+          </button>
           <Link to="#" className="flex items-center gap-3 px-4 py-3 rounded-xl text-muted-foreground hover:bg-muted transition-colors">
             <Users className="w-5 h-5" />
             Audience
@@ -112,8 +121,8 @@ const InterviewDashboard = () => {
         <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-display font-bold">AI Interview</h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">Practice realistic mock interviews with AI recruiters</p>
+              <h1 className="text-xl sm:text-2xl font-display font-bold">{activeTab === 'resume' ? 'Resume Analyzer' : 'AI Interview'}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">{activeTab === 'resume' ? 'Get AI-powered feedback on your resume' : 'Practice realistic mock interviews with AI recruiters'}</p>
             </div>
             <div className="flex items-center gap-3">
               <Button
@@ -124,15 +133,27 @@ const InterviewDashboard = () => {
               >
                 {theme === "light" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
               </Button>
-              <Button variant="outline" onClick={() => navigate('/interview/history')}>
-                <Calendar className="w-4 h-4 mr-2" />
-                History
-              </Button>
+              {activeTab === 'interview' && (
+                <Button variant="outline" onClick={() => navigate('/interview/history')}>
+                  <Calendar className="w-4 h-4 mr-2" />
+                  History
+                </Button>
+              )}
             </div>
           </div>
         </header>
 
-        {loading ? (
+        {activeTab === 'resume' ? (
+          <div className="p-4 sm:p-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <ResumeAnalyzer />
+            </motion.div>
+          </div>
+        ) : loading ? (
           <div className="p-6 flex flex-col items-center justify-center min-h-[50vh]">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
             <p className="text-muted-foreground mt-2 text-sm">Loading stats & logs...</p>

@@ -1,65 +1,56 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
-  BarChart3, 
-  MessageSquare, 
-  Timer, 
-  Gamepad2, 
-  Users, 
   Mic, 
   Brain,
-  Sparkles
+  FileText,
+  Headphones,
+  BarChart3,
+  TrendingUp
 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const features = [
   {
-    icon: BarChart3,
-    title: "Live Polls",
-    description: "Create MCQ, Yes/No, or rating polls with instant real-time results visualization.",
+    icon: Mic,
+    title: "AI Interview",
+    description: "Practice realistic technical and HR interviews with an intelligent AI interviewer and receive instant feedback on communication, confidence, and technical accuracy.",
     color: "text-primary",
     bg: "bg-primary/10",
   },
   {
-    icon: Timer,
-    title: "Live Quizzes",
-    description: "Engage with timed quizzes featuring live scoreboards and competitive rankings.",
+    icon: Brain,
+    title: "AI Quiz Generator",
+    description: "Generate personalized quizzes instantly from any topic, job role, or uploaded PDF using AI.",
     color: "text-spark-coral",
     bg: "bg-spark-coral/10",
   },
   {
-    icon: Users,
-    title: "Anonymous Mode",
-    description: "Enable anonymous participation for honest feedback without any barriers.",
+    icon: FileText,
+    title: "Resume-Based Interview",
+    description: "Upload your resume and let AI generate interview questions tailored to your skills, projects, and experience.",
     color: "text-spark-purple",
     bg: "bg-spark-purple/10",
   },
   {
-    icon: Gamepad2,
-    title: "Mini Games",
-    description: "Keep audiences engaged with fun interactive games between sessions.",
+    icon: Headphones,
+    title: "Voice Interview",
+    description: "Experience natural voice conversations with AI for realistic mock interview practice.",
     color: "text-spark-pink",
     bg: "bg-spark-pink/10",
   },
   {
-    icon: Mic,
-    title: "Voice Answers",
-    description: "Allow participants to respond using voice input for hands-free engagement.",
+    icon: BarChart3,
+    title: "Performance Analytics",
+    description: "Track scores, strengths, weaknesses, and personalized improvement recommendations after every interview.",
     color: "text-spark-green",
     bg: "bg-spark-green/10",
   },
   {
-    icon: Brain,
-    title: "AI Insights",
-    description: "Get AI-powered session summaries and audience sentiment analysis.",
+    icon: TrendingUp,
+    title: "Progress Dashboard",
+    description: "Monitor interview history, quiz performance, skill growth, and readiness over time.",
     color: "text-primary",
     bg: "bg-primary/10",
-  },
-  {
-    icon: Sparkles,
-    title: "Chaos Mode",
-    description: "Unleash animated visual effects and reactions for maximum excitement.",
-    color: "text-spark-coral",
-    bg: "bg-spark-coral/10",
   },
 ];
 
@@ -102,11 +93,12 @@ export function FeaturesSection() {
             </span>
             <h2 className="text-2xl sm:text-3xl md:text-5xl font-display font-bold mt-3 sm:mt-4 mb-4 sm:mb-6">
               Everything You Need to{" "}
-              <span className="text-gradient">Engage</span>
+              <span className="text-gradient">Ace Your Next Interview</span>
             </h2>
             <p className="text-base sm:text-lg text-muted-foreground">
-              From simple polls to AI-powered insights, CrowdSpark has all the tools 
-              to transform your presentations into interactive experiences.
+              Our AI-powered platform combines realistic mock interviews, AI quiz generation, 
+              resume analysis, voice interaction, and detailed performance analytics to help 
+              users become interview-ready.
             </p>
           </motion.div>
         </div>

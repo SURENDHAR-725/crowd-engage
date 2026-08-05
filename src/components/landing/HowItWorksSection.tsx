@@ -3,20 +3,20 @@ import { motion } from "framer-motion";
 const steps = [
   {
     number: "01",
-    title: "Create a Session",
-    description: "Sign up and create a new interactive session in seconds. Choose from polls, quizzes, or word clouds.",
+    title: "Choose Your Practice Mode",
+    description: "Select from AI mock interviews, quiz generation, resume-based questions, or voice interview — tailored to your preparation goals.",
     color: "from-primary to-spark-teal",
   },
   {
     number: "02",
-    title: "Share the Code",
-    description: "Get a unique session code to share with your audience. They can join instantly from any device.",
+    title: "Practice with AI",
+    description: "Engage in realistic interview conversations, answer AI-generated questions, and receive real-time feedback on your responses.",
     color: "from-spark-teal to-spark-coral",
   },
   {
     number: "03",
-    title: "Engage in Real-Time",
-    description: "Watch responses flow in live. Display results on screen and keep your audience engaged.",
+    title: "Analyze & Improve",
+    description: "Review detailed performance analytics, track your progress over time, and follow personalized improvement recommendations.",
     color: "from-spark-coral to-spark-purple",
   },
 ];
@@ -41,7 +41,7 @@ export function HowItWorksSection() {
               <span className="text-gradient">3 Simple Steps</span>
             </h2>
             <p className="text-lg text-muted-foreground">
-              No complicated setup. No downloads required. Just create, share, and engage.
+              No complicated setup. No downloads required. Just choose your mode, practice, and improve.
             </p>
           </motion.div>
         </div>
@@ -81,6 +81,40 @@ export function HowItWorksSection() {
             </motion.div>
           ))}
         </div>
+
+        {/* Statistics Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="mt-20 sm:mt-24"
+        >
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 max-w-4xl mx-auto">
+            {[
+              { value: "500+", label: "AI Questions Generated" },
+              { value: "200+", label: "Mock Interviews Completed" },
+              { value: "90%", label: "AI Evaluation Accuracy" },
+              { value: "15+", label: "Technical Domains" },
+            ].map((stat, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: index * 0.1 }}
+                className="text-center p-4 sm:p-6 rounded-2xl bg-muted/50 border border-border/50 backdrop-blur-sm"
+              >
+                <div className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-gradient mb-1 sm:mb-2">
+                  {stat.value}
+                </div>
+                <div className="text-xs sm:text-sm text-muted-foreground">
+                  {stat.label}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
       </div>
     </section>
   );
